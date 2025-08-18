@@ -1,1 +1,1 @@
-import '@testing-library/jest-dom';
+// Removed '@testing-library/jest-dom' which isn't installed; add if DOM matchers needed.

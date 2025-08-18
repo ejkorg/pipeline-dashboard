@@ -23,6 +23,9 @@
   </template>
   
   <script setup lang="ts">
-  import { useToasts } from '@/composables/useToasts';
-  const { toasts, dismiss } = useToasts();
+  import { storeToRefs } from 'pinia';
+  import { useToastsStore } from '@/stores/toasts';
+  const store = useToastsStore();
+  const { toasts } = storeToRefs(store as any);
+  const dismiss = store.dismiss;
   </script>

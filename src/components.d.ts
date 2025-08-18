@@ -10,6 +10,7 @@ declare module 'vue' {
     DarkModeToggle: typeof import('./components/DarkModeToggle.vue')['default']
     Dashboard: typeof import('./components/Dashboard.vue')['default']
     ErrorBoundary: typeof import('./components/ErrorBoundary.vue')['default']
+    OfflineBanner: typeof import('./components/OfflineBanner.vue')['default']
     PipelineChart: typeof import('./components/PipelineChart.vue')['default']
     PipelineSummary: typeof import('./components/PipelineSummary.vue')['default']
     PipelineTable: typeof import('./components/PipelineTable.vue')['default']

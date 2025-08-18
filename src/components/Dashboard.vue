@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
         <h2 class="text-xl font-semibold">Pipelines Overview</h2>
         <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -18,6 +18,16 @@
         >
           {{ loading ? 'Refreshing...' : 'Refresh Now' }}
         </button>
+        <button
+          v-if="!offlineMode"
+          class="px-3 py-2 rounded bg-amber-500 text-white text-sm hover:bg-amber-400"
+          @click="enableOffline()"
+        >Offline</button>
+        <button
+          v-else
+          class="px-3 py-2 rounded bg-green-600 text-white text-sm hover:bg-green-500"
+          @click="disableOffline()"
+        >Go Live</button>
         <label class="text-xs flex flex-col">
           <span class="mb-1">Auto (s)</span>
           <select
@@ -39,8 +49,20 @@
           class="px-3 py-2 rounded bg-gray-200 dark:bg-gray-700 text-sm"
           @click="exportCSV(pipelines)"
         >Export CSV</button>
+        <div class="text-xs flex flex-col">
+          <span class="mb-1">Import JSON</span>
+          <div class="flex items-center gap-2">
+            <input type="file" accept="application/json" class="text-[10px]" @change="onUpload" />
+            <label class="inline-flex items-center gap-1 cursor-pointer select-none">
+              <input type="checkbox" v-model="mergeImport" class="accent-indigo-600" />
+              <span class="text-[10px]">Merge</span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
+
+    <OfflineBanner :active="offlineMode" @disable="disableOffline" class="mt-1" />
 
     <div v-if="error" class="p-4 border border-red-300 bg-red-50 dark:bg-red-900/30 rounded text-sm">
       <p class="font-semibold text-red-700 dark:text-red-300">Error: {{ error.message }}</p>
@@ -76,20 +98,109 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent } from 'vue';
-import { usePipelines } from '@/composables/usePipelines';
+import { defineAsyncComponent, onMounted, onBeforeUnmount, computed, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { usePipelinesStore } from '@/stores/pipelines';
+import { usePrefsStore } from '@/stores/prefs';
+import { useToastsStore } from '@/stores/toasts';
 import PipelineSummary from '@/components/PipelineSummary.vue';
 import PipelineTable from '@/components/PipelineTable.vue';
 import { exportJSON, exportCSV } from '@/utils/exporters';
+import OfflineBanner from '@/components/OfflineBanner.vue';
+import { pipelineData as bundledData } from '@/data.js';
+import { normalizePipelines } from '@/utils/normalizePipeline';
 
-const {
-  pipelines,
-  loading,
-  error,
-  load,
-  pollSeconds,
-  lastUpdated
-} = usePipelines();
+const store = usePipelinesStore();
+const prefs = usePrefsStore();
+const toasts = useToastsStore();
+const { pipelines, loading, error, pollSeconds, lastFetch } = storeToRefs(store);
+const lastUpdated = computed(() => (lastFetch.value ? new Date(lastFetch.value) : null));
+const load = (trigger: string = 'manual') => store.fetchPipelines(trigger);
+const offlineMode = computed(() => prefs.offlineMode);
+const mergeImport = ref(false);
+
+function enableOffline() {
+  prefs.setOffline(true);
+  store.pipelines = normalizePipelines(bundledData.results as any);
+  toasts.push({ title: 'Offline mode', message: 'Using bundled sample data', type: 'info' });
+  store.stopPolling();
+  store.disableRealtime();
+}
+function disableOffline() {
+  prefs.setOffline(false);
+  toasts.push({ title: 'Live mode', message: 'Resuming API polling', type: 'success' });
+  load('manual');
+  store.startPolling();
+  store.enableRealtime();
+}
+
+function uniqueMerge(existing: any[], incoming: any[]) {
+  const map = new Map<string, any>();
+  const keyOf = (r: any) => `${r.start_utc || ''}|${r.pipeline_name || ''}`;
+  for (const r of existing) map.set(keyOf(r), r);
+  for (const r of incoming) map.set(keyOf(r), r); // new overwrites
+  return Array.from(map.values());
+}
+
+async function onUpload(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    const list = Array.isArray(json) ? json : (json.results || []);
+    let working = list as any[];
+    if (mergeImport.value && prefs.offlineMode) {
+      working = uniqueMerge(store.pipelines as any[], working);
+    }
+    const normalized = normalizePipelines(working as any);
+    store.pipelines = normalized as any;
+    prefs.setOffline(true);
+    // Persist offline dataset (size guard ~1MB)
+    const serialized = JSON.stringify({ results: working });
+    if (serialized.length < 1_000_000) {
+      localStorage.setItem('offline:dataset', serialized);
+    } else {
+      toasts.push({ title: 'Import truncated', message: 'Dataset too large to persist locally', type: 'warning' });
+    }
+    toasts.push({ title: 'Dataset imported', message: `${working.length} records loaded`, type: 'success', timeout: 4000 });
+  } catch (err) {
+  console.error('Failed to import JSON', err);
+  toasts.push({ title: 'Import failed', message: (err as Error).message || 'Invalid JSON', type: 'error' });
+  } finally {
+    input.value = '';
+  }
+}
+
+onMounted(() => {
+  if (offlineMode.value) {
+    // Try restore persisted custom dataset first
+    const persisted = localStorage.getItem('offline:dataset');
+    if (persisted) {
+      try {
+        const parsed = JSON.parse(persisted);
+        const list = Array.isArray(parsed) ? parsed : (parsed.results || []);
+        store.pipelines = normalizePipelines(list as any);
+        toasts.push({ title: 'Offline restored', message: `${list.length} records`, type: 'info' });
+      } catch {
+        store.pipelines = normalizePipelines(bundledData.results as any);
+      }
+    } else {
+      store.pipelines = normalizePipelines(bundledData.results as any);
+    }
+  } else {
+    load('initial');
+    store.startPolling();
+    store.enableRealtime();
+  }
+});
+onBeforeUnmount(() => {
+  if (!offlineMode.value) {
+    store.stopPolling();
+    store.disableRealtime();
+  }
+});
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://10.253.112.87:8001';
 

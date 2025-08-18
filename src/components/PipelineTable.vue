@@ -1,10 +1,15 @@
 <template>
   <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+    <div v-if="offlineMode" class="mb-3">
+      <span class="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-full bg-amber-200 text-amber-900 dark:bg-amber-800 dark:text-amber-100">
+        OFFLINE DATA
+      </span>
+    </div>
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
       <div class="flex gap-2">
         <input
           type="text"
-          v-model="searchTerm"
+          v-model="search"
           placeholder="Search pipeline..."
           class="p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
           aria-label="Filter pipelines"
@@ -30,7 +35,7 @@
       <div class="flex items-center gap-3 text-xs">
         <label>
           Page Size
-          <select v-model.number="pageSize" class="ml-1 p-1 border rounded dark:bg-gray-700 dark:border-gray-600">
+          <select v-model.number="pageSizeProxy" class="ml-1 p-1 border rounded dark:bg-gray-700 dark:border-gray-600">
             <option :value="25">25</option>
             <option :value="50">50</option>
             <option :value="100">100</option>
@@ -136,50 +141,18 @@
 
 <script setup lang="ts">
 import type { PipelineRun } from '@/types/pipeline';
-import { ref, computed, watch } from 'vue';
-import { useLocalStorage } from '@/composables/useLocalStorage';
+import { usePipelineFilters } from '@/composables/usePipelineFilters';
+import { usePrefsStore } from '@/stores/prefs';
+import { computed } from 'vue';
 
 const props = defineProps<{ pipelines: PipelineRun[] }>();
+const { page, pageSize, search, sortKey, sortOrder, toggleOrder, paged, sorted, endIndex } =
+  usePipelineFilters(() => props.pipelines);
 
-const searchTerm = useLocalStorage<string>('filters:search', '');
-const sortKey = useLocalStorage<'pipeline_name' | 'start_utc' | 'elapsed_seconds' | 'rowcount'>(
-  'filters:sortKey',
-  'start_utc'
-);
-const sortOrder = useLocalStorage<'asc' | 'desc'>('filters:sortOrder', 'desc');
-const pageSize = useLocalStorage<number>('filters:pageSize', 50);
-const page = ref(1);
-
-watch([searchTerm, sortKey, sortOrder, pageSize], () => {
-  page.value = 1;
-});
-
-function toggleOrder() {
-  sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
-}
-
-const filtered = computed(() => {
-  if (!searchTerm.value) return props.pipelines;
-  const term = searchTerm.value.toLowerCase();
-  return props.pipelines.filter(p => p.pipeline_name.toLowerCase().includes(term));
-});
-
-const sorted = computed(() => {
-  const dir = sortOrder.value === 'asc' ? 1 : -1;
-  return [...filtered.value].sort((a, b) => {
-    let av: number | string = a[sortKey.value];
-    let bv: number | string = b[sortKey.value];
-    if (sortKey.value === 'start_utc') {
-      av = new Date(String(av)).getTime();
-      bv = new Date(String(bv)).getTime();
-    }
-    return av < bv ? -1 * dir : av > bv ? 1 * dir : 0;
-  });
-});
-
-const startIndex = computed(() => (page.value - 1) * pageSize.value);
-const endIndex = computed(() => startIndex.value + pageSize.value);
-const paged = computed(() => sorted.value.slice(startIndex.value, endIndex.value));
+// alias for template binding name consistency
+const pageSizeProxy = pageSize;
+const prefs = usePrefsStore();
+const offlineMode = computed(() => prefs.offlineMode);
 
 function formatDate(iso: string) {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19);
