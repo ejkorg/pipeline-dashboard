@@ -191,12 +191,84 @@ describe('pipelineApi.getPipelineInfo', () => {
         mockFetchSequence([
             {
                 json: async () => ({
-                    results: { not: 'an array' }, // invalid
+                    // Provide a clearly invalid type for results (number) so schema rejects
+                    results: 123 as any,
                 }),
             },
         ]);
         const { getPipelineInfo } = await freshApi();
         await expect(getPipelineInfo(true)).rejects.toThrow(/schema validation/i);
+    });
+
+    it('parses single object result into an array of length 1', async () => {
+        const now = new Date().toISOString();
+        mockFetchSequence([
+            {
+                json: async () => ({
+                    results: {
+                        pipeline_name: 'SingleObj',
+                        start_utc: now,
+                        elapsed_seconds: 5,
+                        rowcount: 1,
+                    },
+                }),
+            },
+        ]);
+        const { getPipelineInfo } = await freshApi();
+        const data = await getPipelineInfo(true);
+        expect(data).toHaveLength(1);
+        expect(data[0]!.pipeline_name).toBe('SingleObj');
+    });
+
+    it('parses object map of results into an array', async () => {
+        const now = Date.now();
+        mockFetchSequence([
+            {
+                json: async () => ({
+                    results: {
+                        a: {
+                            pipeline_name: 'MapA',
+                            start_utc: new Date(now).toISOString(),
+                            elapsed_seconds: 10,
+                            rowcount: 2,
+                        },
+                        b: {
+                            pipeline_name: 'MapB',
+                            start_utc: new Date(now - 1000).toISOString(),
+                            elapsed_seconds: 12,
+                            rowcount: 3,
+                        },
+                    },
+                }),
+            },
+        ]);
+        const { getPipelineInfo } = await freshApi();
+        const data = await getPipelineInfo(true);
+        const names = data.map(r => r.pipeline_name).sort();
+        expect(names).toEqual(['MapA', 'MapB']);
+    });
+
+    it('ignores extra pipelines array metadata while parsing results', async () => {
+        const now = new Date().toISOString();
+        mockFetchSequence([
+            {
+                json: async () => ({
+                    pipelines: ['X', 'Y'],
+                    results: [
+                        {
+                            pipeline_name: 'MetaTest',
+                            start_utc: now,
+                            elapsed_seconds: 1,
+                            rowcount: 1,
+                        },
+                    ],
+                }),
+            },
+        ]);
+        const { getPipelineInfo } = await freshApi();
+        const data = await getPipelineInfo(true);
+        expect(data).toHaveLength(1);
+        expect(data[0]!.pipeline_name).toBe('MetaTest');
     });
 
     it('assigns trend values (up/down/flat) based on elapsed differences', async () => {

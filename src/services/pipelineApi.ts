@@ -64,7 +64,25 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
       rawList = raw;
     } else {
       const parsed = ApiEnvelopeSchema.parse(raw);
-      rawList = parsed.results ?? [];
+      const res: any = parsed.results;
+      if (!res) {
+        rawList = [];
+      } else if (Array.isArray(res)) {
+        rawList = res as RawPipelineRun[];
+      } else if (res && typeof res === 'object') {
+        // Determine if this object is a single run or a map of runs.
+        // Heuristic: if every value of the object is itself an object containing at least
+        // one of the canonical run identifying fields, treat it as a map.
+        const values = Object.values(res);
+        const isMap = values.length > 0 && values.every(v => v && typeof v === 'object' && ('start_utc' in (v as any) || 'pipeline_name' in (v as any)));
+        if (isMap && !('start_utc' in res || 'pipeline_name' in res)) {
+          rawList = values as RawPipelineRun[];
+        } else {
+          rawList = [res as RawPipelineRun];
+        }
+      } else {
+        rawList = [];
+      }
     }
   } catch (e) {
     if (e instanceof z.ZodError) {
@@ -77,15 +95,15 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
           logger.warn('Offending payload snippet', JSON.stringify(raw).slice(0, 2000));
         } catch {/* ignore */}
       }
-      // Optionally also fallback on schema validation in non-test mode (so UI still shows something)
       if (import.meta.env.MODE !== 'test') {
         logger.warn('Schema validation failed; using local sample data fallback');
         rawList = (pipelineData.results || []) as RawPipelineRun[];
       } else {
-      throw new Error(`API schema validation failed: ${details}`);
+        throw new Error(`API schema validation failed: ${details}`);
       }
+    } else {
+      throw e;
     }
-    throw e;
   }
 
   const sanitized = sanitize(rawList);
