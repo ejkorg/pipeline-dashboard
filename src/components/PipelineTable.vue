@@ -118,15 +118,8 @@
               </span>
             </td>
             <td class="py-3 px-4">
-              <span
-                :class="[
-                  'px-2 py-1 text-xs rounded',
-                  p.status === 'success' && 'bg-green-600 text-white',
-                  p.status === 'failed' && 'bg-red-600 text-white',
-                  (!p.status || p.status === 'running') && 'bg-gray-400 text-white'
-                ]"
-              >
-                {{ p.status || 'unknown' }}
+              <span :class="['px-2 py-1 text-xs rounded font-semibold', statusClass(p)]">
+                {{ displayStatus(p) }}
               </span>
             </td>
           </tr>
@@ -156,5 +149,35 @@ const offlineMode = computed(() => prefs.offlineMode);
 
 function formatDate(iso: string) {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19);
+}
+
+// Derive a user-friendly status when backend does not supply one.
+// Precedence:
+// 1. Explicit p.status
+// 2. end_utc present => Completed
+// 3. start_utc present (no end) => Running
+// 4. Otherwise => Unknown
+function displayStatus(p: PipelineRun): string {
+  if (p.status && p.status.trim().length) return p.status.toLowerCase();
+  if (p.end_utc) return 'Completed';
+  if (p.start_utc) return 'Running';
+  return 'Unknown';
+}
+
+function statusClass(p: PipelineRun): string {
+  const s = displayStatus(p).toLowerCase();
+  switch (s) {
+    case 'success':
+    case 'completed':
+      return 'bg-green-600 text-white';
+    case 'failed':
+    case 'error':
+      return 'bg-red-600 text-white';
+    case 'running':
+      return 'bg-blue-600 text-white';
+    case 'unknown':
+    default:
+      return 'bg-gray-400 text-white';
+  }
 }
 </script>
