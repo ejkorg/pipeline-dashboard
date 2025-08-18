@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch, onUnmounted, getCurrentInstance } from 'vue';
-import { getPipelineInfo } from '../services/pipelineApi';
+import { getPipelineInfo, onPipelineSource } from '../services/pipelineApi';
 import type { PipelineRun } from '../types/pipeline';
 import { logger } from '../utils/logger';
 import { normalizePipelines } from '../utils/normalizePipeline';
@@ -17,6 +17,7 @@ export const usePipelinesStore = defineStore('pipelines', () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const lastFetch = ref<number | null>(null);
+  const lastFetchSource = ref<'live' | 'offline' | 'fallback' | null>(null);
   const pollSeconds = ref<number>(
     Number(localStorage.getItem('pipelines:pollSeconds')) ||
       Number(import.meta.env.VITE_API_POLL_SECONDS) ||
@@ -30,9 +31,12 @@ export const usePipelinesStore = defineStore('pipelines', () => {
     loading.value = true;
     error.value = null;
     try {
-      const list = await getPipelineInfo();
+  const list = await getPipelineInfo();
       pipelines.value = normalizePipelines(list);
       lastFetch.value = Date.now();
+  if (error.value) error.value = null;
+  // Source will already have been set by API layer via callback (to implement) else default to live
+  if (!lastFetchSource.value) lastFetchSource.value = 'live';
       if (trigger !== 'realtime') logger.info(`Pipelines updated (${trigger})`);
     } catch (e: any) {
       error.value = e?.message || 'Fetch failed';
@@ -65,11 +69,15 @@ export const usePipelinesStore = defineStore('pipelines', () => {
     });
   }
 
+  // Listen for API source events
+  onPipelineSource(src => { lastFetchSource.value = src; });
+
   const api = {
     pipelines,
     loading,
     error,
     lastFetch,
+    lastFetchSource,
     pollSeconds,
     total,
     avgDuration,

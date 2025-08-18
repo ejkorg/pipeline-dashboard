@@ -10,10 +10,8 @@ const pinia = createPinia();
 app.use(pinia);
 app.mount('#app');
 
-// Apply dark mode class based on prefs
+// Apply dark mode class based on prefs (store already handled system preference fallback)
 const prefs = usePrefsStore();
-const applyDark = (on: boolean) => {
-	document.documentElement.classList.toggle('dark', on);
-};
-applyDark(prefs.darkMode); // initial
-watch(() => prefs.darkMode, v => applyDark(v));
+const applyDark = (on: boolean) => document.documentElement.classList.toggle('dark', on);
+applyDark(prefs.darkMode);
+watch(() => prefs.darkMode, applyDark);
