@@ -1,0 +1,52 @@
+{
+  "name": "pipeline-dashboard",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --ext .ts,.tsx,.vue --max-warnings=0",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:ui": "vitest"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.0",
+    "date-fns": "^3.6.0",
+    "socket.io-client": "^4.8.1",
+    "vue": "^3.5.18",
+    "vue-chartjs": "^5.3.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@testing-library/vue": "^8.1.0",
+    "@types/node": "^22.7.4",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.4.6",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.9.0",
+    "eslint-plugin-vue": "^9.27.0",
+    "lint-staged": "^15.2.9",
+    "msw": "^2.5.2",
+    "postcss": "^8.5.6",
+    "prettier": "^3.3.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.5.4",
+    "unplugin-auto-import": "^0.18.3",
+    "unplugin-vue-components": "^0.27.4",
+    "vite": "^5.4.19",
+    "vitest": "^2.1.2",
+    "vue-tsc": "^2.1.6"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,vue,js,cjs,mjs,json,md,yml,yaml}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}
