@@ -6,7 +6,8 @@ import { getCache, setCache } from './cache';
 import { z } from 'zod';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.253.112.87:8001';
-const endpoint = '/get_pipeline_info';
+// Make the endpoint path configurable to adapt to backend changes without code edits
+const endpoint = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const token = import.meta.env.VITE_API_TOKEN;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
@@ -76,7 +77,8 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
       rawList = raw;
     } else {
       const parsed = ApiEnvelopeSchema.parse(raw);
-      const res: any = parsed.results;
+      // Prefer 'results', but fall back to common alternatives like 'data' or 'items'
+      const res: any = (parsed as any).results ?? (parsed as any).data ?? (parsed as any).items;
       if (!res) {
         rawList = [];
       } else if (Array.isArray(res)) {
@@ -127,29 +129,43 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
 function sanitize(raw: RawPipelineRun[]): PipelineRun[] {
   const sorted = raw
     .filter(r => r && (r.start_utc || r.start_local))
-    .map<PipelineRun>(r => {
-      const elapsedNum = Number(r.elapsed_seconds) || 0;
-      const rowsNum = Number(r.rowcount) || 0;
-      const pidNum = r.pid !== undefined ? Number(r.pid) : undefined;
+    .map<PipelineRun>((r: any) => {
+      // Field synonyms to tolerate backend naming changes
+      const startUtc = r.start_utc || r.start || r.start_time_utc || r.startTimeUtc || r.started_at || r.startedAt;
+      const endUtc = r.end_utc || r.end || r.end_time_utc || r.endTimeUtc || r.ended_at || r.endedAt;
+      const elapsedRaw = r.elapsed_seconds ?? r.duration_seconds ?? r.duration ?? (r.duration_ms != null ? Number(r.duration_ms) / 1000 : undefined);
+      const rowsRaw = r.rowcount ?? r.row_count ?? r.rows ?? r.records;
+      const pidRaw = r.pid ?? r.process_id ?? r.processId;
+      const pipelineName = r.pipeline_name ?? r.pipeline ?? r.name ?? r.script_name;
+      const environment = r.environment ?? r.env;
+      const status = r.status ?? r.state ?? r.run_status ?? r.result;
+      const exitRaw = r.exit_code ?? r.exitCode ?? r.code;
+      const logFile = r.log_file ?? r.log ?? r.log_path ?? r.logPath;
+      const outputFile = r.output_file ?? r.output ?? r.output_path ?? r.outputPath;
+
+      const elapsedNum = Number(elapsedRaw) || 0;
+      const rowsNum = Number(rowsRaw) || 0;
+      const pidNum = pidRaw !== undefined ? Number(pidRaw) : undefined;
+
       return {
-        start_local: r.start_local,
-        end_local: r.end_local,
-        start_utc: r.start_utc || r.start_local || new Date().toISOString(),
-        end_utc: r.end_utc,
+        start_local: r.start_local ?? r.start_local_time ?? r.startLocal ?? undefined,
+        end_local: r.end_local ?? r.end_local_time ?? r.endLocal ?? undefined,
+        start_utc: startUtc || r.start_local || new Date().toISOString(),
+        end_utc: endUtc || undefined,
         elapsed_seconds: elapsedNum,
-        elapsed_human: r.elapsed_human || humanizeSeconds(elapsedNum),
-        output_file: r.output_file,
+        elapsed_human: r.elapsed_human || r.duration_human || humanizeSeconds(elapsedNum),
+        output_file: outputFile || undefined,
         rowcount: rowsNum,
-        log_file: r.log_file,
+        log_file: logFile || undefined,
         pid: isNaN(pidNum as number) ? undefined : pidNum,
-        date_code: r.date_code,
-        pipeline_name: r.pipeline_name || r.script_name || 'unknown',
-        script_name: r.script_name,
-        pipeline_type: r.pipeline_type,
-        environment: r.environment,
-        status: r.status,
-        exit_code: r.exit_code !== undefined ? Number(r.exit_code) : undefined
-      };
+        date_code: r.date_code ?? r.dateCode ?? undefined,
+        pipeline_name: pipelineName || 'unknown',
+        script_name: r.script_name || undefined,
+        pipeline_type: r.pipeline_type || r.type || undefined,
+        environment: environment ?? undefined,
+        status: typeof status === 'string' ? status : undefined,
+        exit_code: exitRaw !== undefined ? Number(exitRaw) : undefined
+      } as PipelineRun;
     })
     .sort((a, b) => new Date(b.start_utc).getTime() - new Date(a.start_utc).getTime());
 

@@ -66,6 +66,28 @@ describe('pipelineApi.getPipelineInfo', () => {
     expect(first.elapsed_seconds).toBe(10);
     });
 
+    it('accepts alternative envelope key "data"', async () => {
+        mockFetchSequence([
+            {
+                json: async () => ({
+                    data: [
+                        {
+                            pipeline_name: 'FromData',
+                            start_utc: new Date().toISOString(),
+                            elapsed_seconds: 15,
+                            rowcount: 9,
+                        },
+                    ],
+                }),
+            },
+        ]);
+        const { getPipelineInfo } = await freshApi();
+        const out = await getPipelineInfo(true);
+        expect(out).toHaveLength(1);
+        expect(out[0]!.pipeline_name).toBe('FromData');
+        expect(out[0]!.elapsed_seconds).toBe(15);
+    });
+
     it('handles root array response (no envelope)', async () => {
         mockFetchSequence([
             {

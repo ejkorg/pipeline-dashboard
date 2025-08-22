@@ -32,6 +32,9 @@ const FlexibleResults = z.union([
 
 export const ApiEnvelopeSchema = z.object({
     results: FlexibleResults.optional(),
+    // Accept common alternative envelope keys used by updated services
+    data: FlexibleResults.optional(),
+    items: FlexibleResults.optional(),
     pipelines: z.array(z.string()).optional()
 }).passthrough();
 

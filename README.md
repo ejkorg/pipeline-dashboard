@@ -24,6 +24,7 @@ See `.env.example`. Notable flags:
 | Var | Purpose |
 |-----|---------|
 | `VITE_API_BASE_URL` | Override backend base URL |
+| `VITE_API_ENDPOINT_PATH` | Override path (e.g., `/api/pipelines`), defaults to `/get_pipeline_info` |
 | `VITE_API_TIMEOUT_MS` | Request timeout (ms) |
 | `VITE_API_POLL_SECONDS` | Default poll interval |
 | `VITE_OFFLINE_MODE` | Force offline sample dataset |
