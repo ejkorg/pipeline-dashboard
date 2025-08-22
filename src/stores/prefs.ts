@@ -3,12 +3,20 @@ import { ref, watch } from 'vue';
 
 // UI / user preference store (persisted in localStorage)
 export const usePrefsStore = defineStore('prefs', () => {
-  const darkMode = ref(localStorage.getItem('ui:darkMode') === 'true');
+  // Dark mode initialization: prefer explicit stored value; fall back to legacy key; then system preference
+  function prefersDark(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
+  }
+  const stored = localStorage.getItem('ui:darkMode');
+  const legacy = localStorage.getItem('app:dark'); // previous key used by DarkModeToggle
+  const initialDark = stored != null ? stored === 'true' : legacy != null ? legacy === 'true' : prefersDark();
+  const darkMode = ref(initialDark);
   const tablePageSize = ref<number>(Number(localStorage.getItem('ui:tablePageSize')) || 50);
   const sortKey = ref<string>(localStorage.getItem('ui:sortKey') || 'start_utc');
   const sortOrder = ref<'asc' | 'desc'>((localStorage.getItem('ui:sortOrder') as any) || 'desc');
   const search = ref<string>(localStorage.getItem('ui:search') || '');
-  const offlineMode = ref(localStorage.getItem('ui:offlineMode') === 'true');
+  // Offline mode: do NOT persist by default; start live unless env forces offline.
+  const offlineMode = ref(import.meta.env['VITE_OFFLINE_MODE'] === 'true');
 
   function toggleDark() { darkMode.value = !darkMode.value; }
   function setPageSize(n: number) { tablePageSize.value = n; }
@@ -23,6 +31,6 @@ export const usePrefsStore = defineStore('prefs', () => {
   watch(sortKey, v => localStorage.setItem('ui:sortKey', v));
   watch(sortOrder, v => localStorage.setItem('ui:sortOrder', v));
   watch(search, v => localStorage.setItem('ui:search', v));
-  watch(offlineMode, v => localStorage.setItem('ui:offlineMode', String(v)));
+  // Intentionally not persisting offlineMode so app always defaults to live data on reload
   return { darkMode, tablePageSize, sortKey, sortOrder, search, offlineMode, toggleDark, setPageSize, setSort, setSearch, toggleOffline, setOffline };
 });

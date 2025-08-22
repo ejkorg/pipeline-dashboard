@@ -10,6 +10,16 @@ const endpoint = '/get_pipeline_info';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const token = import.meta.env.VITE_API_TOKEN;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
+const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
+
+// Allow consumers to observe the source of the last fetch.
+type SourceListener = (source: 'live' | 'offline' | 'fallback') => void;
+let listeners: SourceListener[] = [];
+export function onPipelineSource(listener: SourceListener) {
+  listeners.push(listener);
+  return () => { listeners = listeners.filter(l => l !== listener); };
+}
+function emitSource(s: 'live' | 'offline' | 'fallback') { for (const l of listeners) l(s); }
 
 function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: number } = {}) {
   const { timeout = DEFAULT_TIMEOUT, ...rest } = options;
@@ -40,6 +50,7 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
     logger.info('Offline mode enabled - serving local sample data');
     const sanitized = sanitize((pipelineData.results || []) as RawPipelineRun[]);
     setCache(sanitized);
+  emitSource('offline');
     return sanitized;
   }
 
@@ -49,11 +60,12 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
     raw = await fetchJson<PipelineApiEnvelope | RawPipelineRun[]>(`${baseUrl}${endpoint}`);
   } catch (e: any) {
     // Network / timeout / HTTP error fallback: use bundled sample data (dev/demo mode only)
-    if (import.meta.env.MODE !== 'test') {
+    if (import.meta.env.MODE !== 'test' && !STRICT_NO_FALLBACK) {
       logger.warn('API fetch failed, falling back to local sample data', { message: e?.message });
       rawList = (pipelineData.results || []) as RawPipelineRun[];
       const sanitized = sanitize(rawList);
       setCache(sanitized);
+      emitSource('fallback');
       return sanitized;
     }
     throw e; // preserve behavior for tests
@@ -95,7 +107,7 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
           logger.warn('Offending payload snippet', JSON.stringify(raw).slice(0, 2000));
         } catch {/* ignore */}
       }
-      if (import.meta.env.MODE !== 'test') {
+  if (import.meta.env.MODE !== 'test' && !STRICT_NO_FALLBACK) {
         logger.warn('Schema validation failed; using local sample data fallback');
         rawList = (pipelineData.results || []) as RawPipelineRun[];
       } else {
@@ -108,6 +120,7 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
 
   const sanitized = sanitize(rawList);
   setCache(sanitized);
+  emitSource('live');
   return sanitized;
 }
 
