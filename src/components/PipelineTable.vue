@@ -57,7 +57,13 @@
       </div>
     </div>
 
-    <div class="overflow-x-auto max-h-[560px]">
+    <div
+      class="overflow-x-auto max-h-[560px] outline-none"
+      tabindex="0"
+      @keydown.stop.prevent="onKeydown"
+      @focus="hasFocus = true"
+      @blur="hasFocus = false"
+    >
       <table class="w-full text-sm" role="table" aria-label="Pipeline runs">
         <thead
           class="text-xs uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-300 sticky top-0"
@@ -69,15 +75,20 @@
             <th class="py-3 px-4 text-left">Rows</th>
             <th class="py-3 px-4 text-left">Trend</th>
             <th class="py-3 px-4 text-left">Env</th>
-            <th class="py-3 px-4 text-left">Status</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="p in paged"
-            :key="p.pid ?? p.start_utc + p.pipeline_name"
-            class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            v-for="(p, idx) in paged"
+            :key="rowKey(p)"
+            :data-key="rowKey(p)"
+            class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer"
+            :class="[
+              isSelected(p) && 'bg-indigo-50 dark:bg-indigo-900/30',
+              hasFocus && focusIndex === idx && 'ring-2 ring-indigo-400'
+            ]"
             role="row"
+            @click="onRowClick($event, p, idx)"
           >
             <td class="py-3 px-4 font-medium">
               {{ p.pipeline_name }}
@@ -117,11 +128,7 @@
                 {{ p.environment || 'N/A' }}
               </span>
             </td>
-            <td class="py-3 px-4">
-              <span :class="['px-2 py-1 text-xs rounded font-semibold', statusClass(p)]">
-                {{ displayStatus(p) }}
-              </span>
-            </td>
+            
           </tr>
         </tbody>
       </table>
@@ -138,7 +145,16 @@ import { usePipelineFilters } from '@/composables/usePipelineFilters';
 import { usePrefsStore } from '@/stores/prefs';
 import { computed } from 'vue';
 
-const props = defineProps<{ pipelines: PipelineRun[] }>();
+const emit = defineEmits<{
+  (e: 'item-click', run: PipelineRun): void;
+  (e: 'selection-change', keys: string[]): void;
+}>();
+
+const props = defineProps<{
+  pipelines: PipelineRun[];
+  selectedKey?: string; // legacy single-select
+  selectedKeys?: string[]; // multi-select
+}>();
 const { page, pageSize, search, sortKey, sortOrder, toggleOrder, paged, sorted, endIndex } =
   usePipelineFilters(() => props.pipelines);
 
@@ -151,33 +167,64 @@ function formatDate(iso: string) {
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19);
 }
 
-// Derive a user-friendly status when backend does not supply one.
-// Precedence:
-// 1. Explicit p.status
-// 2. end_utc present => Completed
-// 3. start_utc present (no end) => Running
-// 4. Otherwise => Unknown
-function displayStatus(p: PipelineRun): string {
-  if (p.status && p.status.trim().length) return p.status.toLowerCase();
-  if (p.end_utc) return 'Completed';
-  if (p.start_utc) return 'Running';
-  return 'Unknown';
+// Selection helpers
+import { ref } from 'vue';
+const hasFocus = ref(false);
+const focusIndex = ref<number>(-1);
+
+function rowKey(p: PipelineRun): string {
+  return String(p.pid ?? `${p.start_utc}|${p.pipeline_name}`);
+}
+function isSelected(p: PipelineRun): boolean {
+  const key = rowKey(p);
+  if (props.selectedKeys && props.selectedKeys.length) {
+    return props.selectedKeys.includes(key);
+  }
+  return props.selectedKey ? key === props.selectedKey : false;
+}
+function onRowClick(evt: MouseEvent, p: PipelineRun, idx: number) {
+  const key = rowKey(p);
+  focusIndex.value = idx;
+  const multi = evt.ctrlKey || evt.metaKey;
+  const range = evt.shiftKey;
+  if (!props.selectedKeys && !multi && !range) {
+    emit('item-click', p);
+    return;
+  }
+  let next: string[] = Array.isArray(props.selectedKeys) ? [...props.selectedKeys] : (props.selectedKey ? [props.selectedKey] : []);
+  if (range && focusIndex.value >= 0) {
+    // range select from nearest selected or start
+    const start = Math.min(focusIndex.value, idx);
+    const end = Math.max(focusIndex.value, idx);
+    const pageKeys = (props.pipelines || []).slice(0).filter(x => true); // noop keep type
+    const keysInRange = (paged as any as PipelineRun[]).slice(start, end + 1).map(rowKey);
+    const set = new Set(next);
+    keysInRange.forEach(k => set.add(k));
+    next = Array.from(set);
+  } else if (multi) {
+    if (next.includes(key)) next = next.filter(k => k !== key);
+    else next.push(key);
+  } else {
+    next = [key];
+  }
+  emit('selection-change', next);
 }
 
-function statusClass(p: PipelineRun): string {
-  const s = displayStatus(p).toLowerCase();
-  switch (s) {
-    case 'success':
-    case 'completed':
-      return 'bg-green-600 text-white';
-    case 'failed':
-    case 'error':
-      return 'bg-red-600 text-white';
-    case 'running':
-      return 'bg-blue-600 text-white';
-    case 'unknown':
-    default:
-      return 'bg-gray-400 text-white';
+function onKeydown(e: KeyboardEvent) {
+  const max = (paged as any as PipelineRun[]).length - 1;
+  if (max < 0) return;
+  if (focusIndex.value < 0) focusIndex.value = 0;
+  if (e.key === 'ArrowDown') {
+    focusIndex.value = Math.min(max, focusIndex.value + 1);
+  } else if (e.key === 'ArrowUp') {
+    focusIndex.value = Math.max(0, focusIndex.value - 1);
+  } else if (e.key === 'Home') {
+    focusIndex.value = 0;
+  } else if (e.key === 'End') {
+    focusIndex.value = max;
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    const item = (paged as any as PipelineRun[])[focusIndex.value];
+    if (item) onRowClick(new MouseEvent('click'), item, focusIndex.value);
   }
 }
 </script>

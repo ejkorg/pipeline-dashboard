@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-xl font-semibold">Pipelines Overview</h2>
         <p class="text-xs text-gray-500 dark:text-gray-400">
-          Source: {{ apiBase }}/get_pipeline_info
+          Source: {{ apiBase }}{{ apiPath }}
         </p>
         <p v-if="lastUpdated" class="text-[10px] text-gray-400">
           Updated: {{ lastUpdated.toLocaleTimeString() }}
@@ -65,7 +65,7 @@
     <OfflineBanner :active="offlineMode" @disable="disableOffline" class="mt-1" />
 
     <div v-if="error" class="p-4 border border-red-300 bg-red-50 dark:bg-red-900/30 rounded text-sm">
-      <p class="font-semibold text-red-700 dark:text-red-300">Error: {{ error.message }}</p>
+      <p class="font-semibold text-red-700 dark:text-red-300">Error: {{ error }}</p>
     </div>
 
     <div v-if="loading && !pipelines.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -77,7 +77,13 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Suspense>
           <template #default>
-            <LazyPipelineDuration :pipelines="pipelines" />
+            <LazyPipelineDuration
+              :pipelines="pipelines"
+              :selectedKey="selectedKey"
+              :selectedKeys="selectedKeys"
+              @item-click="onItemClick"
+              @selection-change="onSelectionChange"
+            />
           </template>
           <template #fallback>
             <div class="h-[360px] bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
@@ -85,14 +91,27 @@
         </Suspense>
         <Suspense>
           <template #default>
-            <LazyRowCount :pipelines="pipelines" />
+            <LazyRowCount
+              :pipelines="pipelines"
+              :selectedKey="selectedKey"
+              :selectedKeys="selectedKeys"
+              @item-click="onItemClick"
+              @selection-change="onSelectionChange"
+            />
           </template>
           <template #fallback>
             <div class="h-[360px] bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
           </template>
         </Suspense>
       </div>
-      <PipelineTable :pipelines="pipelines" />
+      <PipelineTable
+        :pipelines="pipelines"
+        :selectedKey="selectedKey"
+        :selectedKeys="selectedKeys"
+        @item-click="onItemClick"
+        @selection-change="onSelectionChange"
+      />
+      <DetailsModal v-if="showModal" :run="selectedRun" @close="showModal=false" :otherRuns="selectedRuns" />
     </template>
   </div>
 </template>
@@ -104,6 +123,7 @@ import { usePipelinesStore } from '@/stores/pipelines';
 import { usePrefsStore } from '@/stores/prefs';
 import { useToastsStore } from '@/stores/toasts';
 import PipelineSummary from '@/components/PipelineSummary.vue';
+import DetailsModal from '@/components/DetailsModal.vue';
 import PipelineTable from '@/components/PipelineTable.vue';
 import { exportJSON, exportCSV } from '@/utils/exporters';
 import OfflineBanner from '@/components/OfflineBanner.vue';
@@ -115,6 +135,25 @@ const prefs = usePrefsStore();
 const toasts = useToastsStore();
 const { pipelines, loading, error, pollSeconds, lastFetch } = storeToRefs(store);
 const lastUpdated = computed(() => (lastFetch.value ? new Date(lastFetch.value) : null));
+const selectedRun = ref<any | null>(null);
+const selectedKeys = ref<string[]>([]);
+const selectedKey = computed(() => selectedRun.value ? String(selectedRun.value.pid ?? `${selectedRun.value.start_utc}|${selectedRun.value.pipeline_name}`) : '');
+const selectedRuns = computed(() => {
+  const set = new Set(selectedKeys.value);
+  return pipelines.value.filter(r => set.has(String(r.pid ?? `${r.start_utc}|${r.pipeline_name}`)));
+});
+const showModal = ref(false);
+function onItemClick(run: any) {
+  selectedRun.value = run;
+  showModal.value = true;
+}
+function onSelectionChange(keys: string[]) {
+  selectedKeys.value = keys;
+  if (keys.length) {
+    const first = pipelines.value.find(r => String(r.pid ?? `${r.start_utc}|${r.pipeline_name}`) === keys[0]);
+    if (first) selectedRun.value = first;
+  }
+}
 const load = (trigger: string = 'manual') => store.fetchPipelines(trigger);
 const offlineMode = computed(() => prefs.offlineMode);
 const mergeImport = ref(false);
@@ -122,13 +161,13 @@ const mergeImport = ref(false);
 function enableOffline() {
   prefs.setOffline(true);
   store.pipelines = normalizePipelines(bundledData.results as any);
-  toasts.push({ title: 'Offline mode', message: 'Using bundled sample data', type: 'info' });
+  toasts.push('Offline mode: Using bundled sample data', { type: 'info' });
   store.stopPolling();
   store.disableRealtime();
 }
 function disableOffline() {
   prefs.setOffline(false);
-  toasts.push({ title: 'Live mode', message: 'Resuming API polling', type: 'success' });
+  toasts.push('Live mode: Resuming API polling', { type: 'success' });
   load('manual');
   store.startPolling();
   store.enableRealtime();
@@ -162,12 +201,12 @@ async function onUpload(e: Event) {
     if (serialized.length < 1_000_000) {
       localStorage.setItem('offline:dataset', serialized);
     } else {
-      toasts.push({ title: 'Import truncated', message: 'Dataset too large to persist locally', type: 'warning' });
+  toasts.push('Import truncated: Dataset too large to persist locally', { type: 'warn' });
     }
-    toasts.push({ title: 'Dataset imported', message: `${working.length} records loaded`, type: 'success', timeout: 4000 });
+  toasts.push(`Dataset imported: ${working.length} records loaded`, { type: 'success', timeoutMs: 4000 });
   } catch (err) {
   console.error('Failed to import JSON', err);
-  toasts.push({ title: 'Import failed', message: (err as Error).message || 'Invalid JSON', type: 'error' });
+  toasts.push(`Import failed: ${(err as Error).message || 'Invalid JSON'}`, { type: 'error' });
   } finally {
     input.value = '';
   }
@@ -182,7 +221,7 @@ onMounted(() => {
         const parsed = JSON.parse(persisted);
         const list = Array.isArray(parsed) ? parsed : (parsed.results || []);
         store.pipelines = normalizePipelines(list as any);
-        toasts.push({ title: 'Offline restored', message: `${list.length} records`, type: 'info' });
+  toasts.push(`Offline restored: ${list.length} records`, { type: 'info' });
       } catch {
         store.pipelines = normalizePipelines(bundledData.results as any);
       }
@@ -203,6 +242,7 @@ onBeforeUnmount(() => {
 });
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://10.253.112.87:8001';
+const apiPath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info';
 
 const LazyPipelineDuration = defineAsyncComponent(() => import('./PipelineChart.vue'));
 const LazyRowCount = defineAsyncComponent(() => import('./RowCountChart.vue'));

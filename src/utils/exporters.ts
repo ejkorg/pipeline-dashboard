@@ -6,8 +6,9 @@ export function exportJSON(runs: PipelineRun[]) {
 }
 
 export function exportCSV(runs: PipelineRun[]) {
-    if (!runs.length) return;
-    const headers = Object.keys(runs[0]) as (keyof PipelineRun)[];
+    if (!runs || runs.length === 0) return;
+    const first = runs[0] as PipelineRun;
+    const headers = Object.keys(first) as (keyof PipelineRun)[];
     const lines = [
         headers.join(','),
         ...runs.map(r =>

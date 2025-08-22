@@ -26,6 +26,6 @@
   import { storeToRefs } from 'pinia';
   import { useToastsStore } from '@/stores/toasts';
   const store = useToastsStore();
-  const { toasts } = storeToRefs(store as any);
+  const { toasts } = storeToRefs(store);
   const dismiss = store.dismiss;
   </script>
