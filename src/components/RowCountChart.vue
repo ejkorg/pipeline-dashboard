@@ -28,20 +28,40 @@ ChartJS.register(
 
 const emit = defineEmits<{ (e: 'item-click', run: PipelineRun): void; (e: 'selection-change', keys: string[]): void }>();
 const props = defineProps<{ pipelines: PipelineRun[]; selectedKey?: string; selectedKeys?: string[] }>();
-const latest = computed(() => props.pipelines.slice(0, 30).reverse());
+
+const keyOf = (p: PipelineRun) => p.id || p.run_id || p.key || p._id;
+const selectedSet = computed(() => new Set([
+  ...(props.selectedKeys || []),
+  ...(props.selectedKey ? [props.selectedKey] : [])
+]));
+const selectedRuns = computed(() =>
+  props.pipelines.filter(p => selectedSet.value.has(keyOf(p)))
+);
+const unselectedRuns = computed(() =>
+  props.pipelines.filter(p => !selectedSet.value.has(keyOf(p)))
+);
+const chartRuns = computed(() => {
+  // Always include all selected runs, then fill up to 30 with most recent unselected
+  const runs = [...selectedRuns.value];
+  for (const p of unselectedRuns.value) {
+    if (runs.length >= 30) break;
+    runs.push(p);
+  }
+  return runs.reverse(); // keep newest last for chart
+});
 
 const chartData = computed(() => ({
-  labels: latest.value.map(p => format(new Date(p.start_utc), 'MM/dd HH:mm')),
+  labels: chartRuns.value.map(p => format(new Date(p.start_utc), 'MM/dd HH:mm')),
   datasets: [
     {
       label: 'Rows Processed',
       backgroundColor: '#10b981',
       borderColor: '#10b981',
-      data: latest.value.map(p => p.rowcount),
+      data: chartRuns.value.map(p => p.rowcount),
       fill: false,
       tension: 0.1,
-  pointRadius: latest.value.map(p => isSelected(p) ? 5 : 3),
-  pointBackgroundColor: latest.value.map(p => isSelected(p) ? '#059669' : '#10b981')
+      pointRadius: chartRuns.value.map(p => isSelected(p) ? 5 : 3),
+      pointBackgroundColor: chartRuns.value.map(p => isSelected(p) ? '#059669' : '#10b981')
     }
   ]
 }));
@@ -55,7 +75,7 @@ const chartOptions = {
     if (!ci || !elements?.length) return;
     const first = elements[0];
     const idx = first.index as number;
-    const run = latest.value[idx];
+  const run = chartRuns.value[idx];
     if (!run) return;
     if (evt?.native?.ctrlKey || evt?.native?.metaKey) {
       const key = keyOf(run);
