@@ -2,7 +2,7 @@
   <button
     class="px-3 py-2 rounded-md border dark:border-gray-600 text-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
     @click="toggle"
-    :aria-pressed="darkMode.toString()"
+  :aria-pressed="darkMode"
   >
     <span v-if="darkMode">🌙 Dark</span>
     <span v-else>☀️ Light</span>
