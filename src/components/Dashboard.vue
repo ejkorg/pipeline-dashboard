@@ -73,45 +73,7 @@
     </div>
 
     <template v-else>
-      <PipelineSummary :pipelines="pipelines" />
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Suspense>
-          <template #default>
-            <LazyPipelineDuration
-              :pipelines="pipelines"
-              :selectedKey="selectedKey"
-              :selectedKeys="selectedKeys"
-              @item-click="onItemClick"
-              @selection-change="onSelectionChange"
-            />
-          </template>
-          <template #fallback>
-            <div class="h-[360px] bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-          </template>
-        </Suspense>
-        <Suspense>
-          <template #default>
-            <LazyRowCount
-              :pipelines="pipelines"
-              :selectedKey="selectedKey"
-              :selectedKeys="selectedKeys"
-              @item-click="onItemClick"
-              @selection-change="onSelectionChange"
-            />
-          </template>
-          <template #fallback>
-            <div class="h-[360px] bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
-          </template>
-        </Suspense>
-      </div>
-      <PipelineTable
-        :pipelines="pipelines"
-        :selectedKey="selectedKey"
-        :selectedKeys="selectedKeys"
-        @item-click="onItemClick"
-        @selection-change="onSelectionChange"
-      />
-      <DetailsModal v-if="showModal" :run="selectedRun" @close="showModal=false" :otherRuns="selectedRuns" />
+      <PipelineSummaryDashboard />
     </template>
   </div>
 </template>
@@ -120,6 +82,7 @@
 import { defineAsyncComponent, onMounted, onBeforeUnmount, computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { usePipelinesStore } from '@/stores/pipelines';
+ // Removed unused import of PipelineDataSample
 import { usePrefsStore } from '@/stores/prefs';
 import { useToastsStore } from '@/stores/toasts';
 import PipelineSummary from '@/components/PipelineSummary.vue';
@@ -213,6 +176,16 @@ async function onUpload(e: Event) {
 }
 
 onMounted(() => {
+  // Always use offline/mock data if VITE_USE_MOCK_DATA is true
+  if (import.meta.env.VITE_USE_MOCK_DATA === 'true') {
+    prefs.setOffline(true);
+    // Use the dummy data from the API service
+    load('manual');
+    toasts.push('Mock mode: Using dummy pipeline data', { type: 'info' });
+    store.stopPolling();
+    store.disableRealtime();
+    return;
+  }
   if (offlineMode.value) {
     // Try restore persisted custom dataset first
     const persisted = localStorage.getItem('offline:dataset');
@@ -221,7 +194,7 @@ onMounted(() => {
         const parsed = JSON.parse(persisted);
         const list = Array.isArray(parsed) ? parsed : (parsed.results || []);
         store.pipelines = normalizePipelines(list as any);
-  toasts.push(`Offline restored: ${list.length} records`, { type: 'info' });
+        toasts.push(`Offline restored: ${list.length} records`, { type: 'info' });
       } catch {
         store.pipelines = normalizePipelines(bundledData.results as any);
       }

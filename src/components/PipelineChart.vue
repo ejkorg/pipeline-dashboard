@@ -1,7 +1,11 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg h-[360px] flex flex-col">
-    <h3 class="text-lg font-semibold mb-4">Pipeline Duration (Last 30)</h3>
-  <Bar ref="chartRef" :data="chartData" :options="chartOptions" class="flex-1" />
+  <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg h-[440px] flex flex-col">
+    <h3 class="text-lg font-semibold mb-4">Pipeline Duration (Last 10)</h3>
+    <div style="overflow-x: auto; min-width: 0; width: 100%;">
+  <div :style="`min-width: ${Math.max(900, (chartRuns.value ? chartRuns.value.length : 0) * 90)}px; width: fit-content;`">
+        <Bar ref="chartRef" :data="chartData" :options="chartOptions" style="width:100%" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -26,25 +30,10 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 const emit = defineEmits<{ (e: 'item-click', run: PipelineRun): void; (e: 'selection-change', keys: string[]): void }>();
 const props = defineProps<{ pipelines: PipelineRun[]; selectedKey?: string; selectedKeys?: string[] }>();
 
-const keyOf = (p: PipelineRun) => p.id || p.run_id || p.key || p._id;
-const selectedSet = computed(() => new Set([
-  ...(props.selectedKeys || []),
-  ...(props.selectedKey ? [props.selectedKey] : [])
-]));
-const selectedRuns = computed(() =>
-  props.pipelines.filter(p => selectedSet.value.has(keyOf(p)))
-);
-const unselectedRuns = computed(() =>
-  props.pipelines.filter(p => !selectedSet.value.has(keyOf(p)))
-);
+const keyOf = (p: PipelineRun) => String(p.pid ?? `${p.start_utc}|${p.pipeline_name}`);
 const chartRuns = computed(() => {
-  // Always include all selected runs, then fill up to 30 with most recent unselected
-  const runs = [...selectedRuns.value];
-  for (const p of unselectedRuns.value) {
-    if (runs.length >= 30) break;
-    runs.push(p);
-  }
-  return runs.reverse(); // keep newest last for chart
+  // Show all runs in the current page (paged from table)
+  return [...props.pipelines].reverse(); // newest last for chart
 });
 
 const chartData = computed(() => ({
@@ -83,9 +72,6 @@ const chartOptions = {
 
 const chartRef = ref<InstanceType<typeof Bar> | null>(null);
 
-function keyOf(p: PipelineRun) {
-  return String(p.pid ?? `${p.start_utc}|${p.pipeline_name}`);
-}
 function isSelected(p: PipelineRun) {
   const key = keyOf(p);
   if (props.selectedKeys && props.selectedKeys.length) {
