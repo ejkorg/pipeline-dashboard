@@ -1,74 +1,3 @@
-// Dummy pipeline data for mock mode
-// Dummy data for offline/mock mode
-export const DUMMY_PIPELINE_DATA = {
-  "total": 259,
-  "count": 259,
-  "results": [
-    {
-      "start_local": "2025-08-28T22:07:01",
-      "end_local": "2025-08-28T22:35:07",
-      "start_utc": "2025-08-29T05:07:01Z",
-      "end_utc": "2025-08-29T05:35:07Z",
-      "elapsed_seconds": 1685.351,
-      "elapsed_human": "28m 5s",
-      "output_file": "/apps/exensio_data/reference_data/SubconLotRefData-20250828_220701.subconLot",
-      "rowcount": 7662,
-      "log_file": "/apps/exensio_data/reference_data/jag_test/log/getSubconLotRefData_LOTGDB.log",
-      "pid": 73156,
-      "date_code": "20250828_220701",
-      "pipeline_name": "subcon_lotg_to_refdb_ingest",
-      "script_name": "get_subcon_lot_ref_data_LOTGDB_rc10.py",
-      "pipeline_type": "batch",
-      "environment": "prod"
-    },
-    {
-      "start_local": "2025-08-28T21:07:02",
-      "end_local": "2025-08-28T21:29:03",
-      "start_utc": "2025-08-29T04:07:02Z",
-      "end_utc": "2025-08-29T04:29:03Z",
-      "elapsed_seconds": 1321.16,
-      "elapsed_human": "22m 1s",
-      "output_file": "/apps/exensio_data/reference_data/SubconLotRefData-20250828_210702.subconLot",
-      "rowcount": 6799,
-      "log_file": "/apps/exensio_data/reference_data/jag_test/log/getSubconLotRefData_LOTGDB.log",
-      "pid": 20702,
-      "date_code": "20250828_210702",
-      "pipeline_name": "subcon_lotg_to_refdb_ingest",
-      "script_name": "get_subcon_lot_ref_data_LOTGDB_rc10.py",
-      "pipeline_type": "batch",
-      "environment": "prod"
-    },
-    {
-      "start_local": "2025-08-28T20:07:02",
-      "end_local": "2025-08-28T20:29:16",
-      "start_utc": "2025-08-29T03:07:02Z",
-      "end_utc": "2025-08-29T03:29:16Z",
-      "elapsed_seconds": 1333.802,
-      "elapsed_human": "22m 13s",
-      "output_file": "/apps/exensio_data/reference_data/SubconLotRefData-20250828_200702.subconLot",
-      "rowcount": 6799,
-      "log_file": "/apps/exensio_data/reference_data/jag_test/log/getSubconLotRefData_LOTGDB.log",
-      "pid": 59209,
-      "date_code": "20250828_200702",
-      "pipeline_name": "subcon_lotg_to_refdb_ingest",
-      "script_name": "get_subcon_lot_ref_data_LOTGDB_rc10.py",
-      "pipeline_type": "batch",
-      "environment": "prod"
-    }
-    // ...add more as needed for testing...
-  ],
-  "pipelines": [
-    "subcon_lot_ref_data",
-    "get_subcon_lot_ref_data_LOTGDB_rc8.py",
-    "get_subcon_lot_ref_data_LOTGDB_rc7.py",
-    "get_subcon_lot_ref_data_LOTGDB_rc10.py",
-    "subcon_lotg_to_FT_refdb_ingest",
-    "subcon_lotg_to_refdb_ingest",
-    "get_subcon_lot_ref_data_LOTGDB",
-    "unknown",
-    "get_subcon_lot_ref_data_LOTGDB_rc9.py"
-  ]
-};
 import type { PipelineApiEnvelope, PipelineRun, RawPipelineRun } from '@/types/pipeline';
 import { pipelineData } from '@/data.js';
 import { ApiEnvelopeSchema } from '@/types/pipelineSchema';
@@ -117,13 +46,14 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
     if (cached) return cached;
   }
 
-  // Use dummy data if VITE_USE_MOCK_DATA is set, or fallback to offline mode
+  // Use mock data from src/data.js if VITE_USE_MOCK_DATA is set
   if (import.meta.env['VITE_USE_MOCK_DATA'] === 'true') {
-    logger.info('Mock mode enabled - serving dummy pipeline data');
-    const sanitized = sanitize((DUMMY_PIPELINE_DATA.results || []) as RawPipelineRun[]);
-    setCache(sanitized);
-    emitSource('offline');
-    return sanitized;
+    logger.info('Mock mode enabled - serving mock pipeline data from src/data.js');
+  const rawList = (pipelineData.results || []) as RawPipelineRun[];
+  const sanitized = sanitize(rawList);
+  setCache(sanitized);
+  emitSource('offline');
+  return sanitized;
   }
   // Explicit offline mode short-circuits network access
   if (OFFLINE_MODE) {

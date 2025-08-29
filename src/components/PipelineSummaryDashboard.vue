@@ -6,7 +6,19 @@
       <div v-if="loading" class="text-base text-gray-400 py-8 text-center">Loading pipeline summary...</div>
       <div v-else-if="error" class="text-base text-red-500 py-8 text-center">{{ error }}</div>
       <div v-else class="flex flex-col gap-8">
-        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <!-- Charts at the top -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Avg Duration by Pipeline</h3>
+            <SummaryBarChart :summaries="summaries" />
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Avg Rowcount vs Duration</h3>
+            <SummaryScatterChart :summaries="summaries" />
+          </div>
+        </div>
+        <!-- Summary table next -->
+        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 mt-10">
           <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
             <thead class="bg-gray-50 dark:bg-gray-800">
               <tr>
@@ -34,15 +46,15 @@
             </tbody>
           </table>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Avg Duration by Pipeline</h3>
-            <SummaryBarChart :summaries="summaries" />
-          </div>
-          <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Avg Rowcount vs Duration</h3>
-            <SummaryScatterChart :summaries="summaries" />
-          </div>
+        <!-- Detailed table last -->
+        <div class="mt-10">
+          <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Pipeline Run Details</h3>
+          <PipelineTable
+            :pipelines="pipelines"
+            @item-click="onItemClick"
+            @selection-change="onSelectionChange"
+          />
+          <DetailsModal v-if="showModal && selectedRun" :run="selectedRun" @close="closeModal" />
         </div>
       </div>
     </div>
@@ -50,12 +62,34 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { usePipelineSummaryData } from '@/composables/usePipelineSummaryData';
+import { usePipelinesStore } from '@/stores/pipelines';
 import SummaryBarChart from './SummaryBarChart.vue';
 import SummaryScatterChart from './SummaryScatterChart.vue';
+import PipelineTable from './PipelineTable.vue';
+import DetailsModal from './DetailsModal.vue';
 
 const { summaries, loading, error, fetchSummaries } = usePipelineSummaryData();
+const pipelinesStore = usePipelinesStore();
+const pipelines = pipelinesStore.pipelines;
+
+const selectedRun = ref(null);
+const showModal = ref(false);
+
+function onItemClick(run: any) {
+  selectedRun.value = run;
+  showModal.value = true;
+}
+function onSelectionChange(keys: string[]) {
+  if (keys.length) {
+    const first = pipelines.find((r: any) => String(r.pid ?? `${r.start_utc}|${r.pipeline_name}`) === keys[0]);
+    if (first) selectedRun.value = first;
+  }
+}
+function closeModal() {
+  showModal.value = false;
+}
 
 onMounted(() => {
   fetchSummaries();
