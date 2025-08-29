@@ -177,7 +177,7 @@ async function onUpload(e: Event) {
 
 onMounted(() => {
   // Always use offline/mock data if VITE_USE_MOCK_DATA is true
-  if (import.meta.env.VITE_USE_MOCK_DATA === 'true') {
+  if (import.meta.env['VITE_USE_MOCK_DATA'] === 'true') {
     prefs.setOffline(true);
     // Use the dummy data from the API service
     load('manual');

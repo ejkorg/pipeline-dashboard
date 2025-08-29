@@ -18,7 +18,7 @@ import {
   CategoryScale,
   LinearScale
 } from 'chart.js';
-import type { PipelineSummary } from '@/types/pipelineSummary';
+import type { PipelineSummary } from '@/composables/usePipelineSummaryData';
 
 ChartJS.register(Title, Tooltip, Legend, PointElement, LineElement, CategoryScale, LinearScale);
 
