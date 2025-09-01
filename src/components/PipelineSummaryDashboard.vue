@@ -69,12 +69,13 @@ import SummaryBarChart from './SummaryBarChart.vue';
 import SummaryScatterChart from './SummaryScatterChart.vue';
 import PipelineTable from './PipelineTable.vue';
 import DetailsModal from './DetailsModal.vue';
+import type { PipelineRun } from '@/types/pipeline';
 
 const { summaries, loading, error, fetchSummaries } = usePipelineSummaryData();
 const pipelinesStore = usePipelinesStore();
 const pipelines = pipelinesStore.pipelines;
 
-const selectedRun = ref(null);
+const selectedRun = ref<PipelineRun | null>(null);
 const showModal = ref(false);
 
 function onItemClick(run: any) {

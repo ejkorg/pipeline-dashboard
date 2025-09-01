@@ -35,8 +35,12 @@ const props = defineProps<{ pipelines: PipelineRun[]; selectedKey?: string; sele
 
 const keyOf = (p: PipelineRun) => String(p.pid ?? `${p.start_utc}|${p.pipeline_name}`);
 const chartRuns = computed(() => {
-  // Show all runs in the current page (paged from table)
-  return [...props.pipelines].reverse(); // newest last for chart
+  const selectedKeys = (props.selectedKeys ?? (props.selectedKey ? [props.selectedKey] : [])) as string[];
+  const selectedSet = new Set(selectedKeys);
+  const selected = props.pipelines.filter(p => selectedSet.has(keyOf(p)));
+  const base = props.pipelines.slice(0, 30);
+  const merged = [...new Map([...selected, ...base].map(p => [keyOf(p), p] as const)).values()];
+  return merged.reverse();
 });
 
 const chartData = computed(() => ({
@@ -91,4 +95,7 @@ watch(() => props.selectedKey, () => {
   const ci = (chartRef.value as any)?.['chart'] as Chart | undefined;
   ci?.update();
 });
+
+// Expose for tests
+defineExpose({ chartData });
 </script>

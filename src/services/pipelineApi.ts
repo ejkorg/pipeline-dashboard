@@ -46,8 +46,8 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
     if (cached) return cached;
   }
 
-  // Use mock data from src/data.js if VITE_USE_MOCK_DATA is set
-  if (import.meta.env['VITE_USE_MOCK_DATA'] === 'true') {
+  // Use mock data from src/data.js if VITE_USE_MOCK_DATA is set (but never during tests)
+  if (import.meta.env['VITE_USE_MOCK_DATA'] === 'true' && import.meta.env.MODE !== 'test') {
     logger.info('Mock mode enabled - serving mock pipeline data from src/data.js');
   const rawList = (pipelineData.results || []) as RawPipelineRun[];
   const sanitized = sanitize(rawList);

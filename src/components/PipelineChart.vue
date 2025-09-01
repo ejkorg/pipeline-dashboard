@@ -2,7 +2,7 @@
   <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg h-[440px] flex flex-col">
     <h3 class="text-lg font-semibold mb-4">Pipeline Duration (Last 10)</h3>
     <div style="overflow-x: auto; min-width: 0; width: 100%;">
-  <div :style="`min-width: ${Math.max(900, (chartRuns.value ? chartRuns.value.length : 0) * 90)}px; width: fit-content;`">
+      <div :style="`min-width: ${Math.max(900, (chartRuns ? chartRuns.length : 0) * 90)}px; width: fit-content;`">
         <Bar ref="chartRef" :data="chartData" :options="chartOptions" style="width:100%" />
       </div>
     </div>
@@ -32,8 +32,14 @@ const props = defineProps<{ pipelines: PipelineRun[]; selectedKey?: string; sele
 
 const keyOf = (p: PipelineRun) => String(p.pid ?? `${p.start_utc}|${p.pipeline_name}`);
 const chartRuns = computed(() => {
-  // Show all runs in the current page (paged from table)
-  return [...props.pipelines].reverse(); // newest last for chart
+  const selectedKeys = (props.selectedKeys ?? (props.selectedKey ? [props.selectedKey] : [])) as string[];
+  const selectedSet = new Set(selectedKeys);
+  const selected = props.pipelines.filter(p => selectedSet.has(keyOf(p)));
+  const base = props.pipelines.slice(0, 30);
+  // Merge with preference for selected, then base order; dedupe by key
+  const merged = [...new Map([...selected, ...base].map(p => [keyOf(p), p] as const)).values()];
+  // Reverse so the newest (by original construction in tests) appears first
+  return merged.reverse();
 });
 
 const chartData = computed(() => ({
@@ -84,4 +90,7 @@ watch(() => props.selectedKey, () => {
   const ci = (chartRef.value as any)?.['chart'] as Chart | undefined;
   ci?.update();
 });
+
+// Expose for tests
+defineExpose({ chartData });
 </script>

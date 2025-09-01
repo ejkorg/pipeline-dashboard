@@ -16,7 +16,7 @@ describe('RowCountChart.vue', () => {
     const wrapper = mount(RowCountChart, {
       props: { pipelines: runs }
     });
-    const chartData = wrapper.vm['chartData'];
+  const chartData = (wrapper.vm as any)['chartData'];
     expect(chartData.labels.length).toBe(30);
   // Oldest of the 30 at index 0, newest at index 29
   // For id 31: new Date(2023, 0, 32, 12, 0, 0) => '01/31 12:00'
@@ -31,7 +31,7 @@ describe('RowCountChart.vue', () => {
     const wrapper = mount(RowCountChart, {
       props: { pipelines: runs, selectedKeys: ['1'] }
     });
-  const chartData = wrapper.vm['chartData'];
+  const chartData = (wrapper.vm as any)['chartData'];
   expect(chartData.labels.some((l: string) => l.includes('01/02'))).toBe(true);
     expect(chartData.labels.length).toBe(30);
   });
@@ -41,7 +41,7 @@ describe('RowCountChart.vue', () => {
     const wrapper = mount(RowCountChart, {
       props: { pipelines: runs }
     });
-  const chartData = wrapper.vm['chartData'];
+  const chartData = (wrapper.vm as any)['chartData'];
     expect(chartData.labels.length).toBe(10);
   });
 });

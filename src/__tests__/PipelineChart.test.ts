@@ -16,7 +16,7 @@ describe('PipelineChart.vue', () => {
     const wrapper = mount(PipelineChart, {
       props: { pipelines: runs }
     });
-    const chartData = wrapper.vm['chartData'];
+  const chartData = (wrapper.vm as any)['chartData'];
     expect(chartData.labels.length).toBe(30);
     // Newest at index 0, oldest at index 29
     expect(chartData.labels[0]).toContain('01/31');
@@ -29,7 +29,7 @@ describe('PipelineChart.vue', () => {
     const wrapper = mount(PipelineChart, {
       props: { pipelines: runs, selectedKeys: ['1'] }
     });
-    const chartData = wrapper.vm['chartData'];
+  const chartData = (wrapper.vm as any)['chartData'];
     expect(chartData.labels.some((l: string) => l.includes('01/02'))).toBe(true);
     expect(chartData.labels.length).toBe(30);
   });
@@ -39,7 +39,7 @@ describe('PipelineChart.vue', () => {
     const wrapper = mount(PipelineChart, {
       props: { pipelines: runs }
     });
-    const chartData = wrapper.vm['chartData'];
+  const chartData = (wrapper.vm as any)['chartData'];
     expect(chartData.labels.length).toBe(10);
   });
 });
