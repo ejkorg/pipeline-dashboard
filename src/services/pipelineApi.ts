@@ -7,7 +7,8 @@ import { z } from 'zod';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 // Make the endpoint path configurable to adapt to backend changes without code edits
-const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
+// Default to full dataset and all fields unless overridden via env
+const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
 const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
@@ -49,8 +50,12 @@ export function buildEndpoint({ limit, offset, all_data }: { limit?: number; off
 }
 
 export async function getPipelineInfo(force = false, opts: { limit?: number; offset?: number; all_data?: boolean } = {}): Promise<PipelineRun[]> {
+  const endpoint = buildEndpoint(opts);
+  const fullUrl = `${baseUrl}${endpoint}`;
+  const cacheKey = fullUrl; // Use full URL as cache key to differentiate by query params
+
   if (!force) {
-    const cached = getCache();
+    const cached = getCache(cacheKey);
     if (cached) return cached;
   }
 
@@ -59,7 +64,7 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
     logger.info('Mock mode enabled - serving mock pipeline data from src/data.js');
   const rawList = (pipelineData.results || []) as RawPipelineRun[];
   const sanitized = sanitize(rawList);
-  setCache(sanitized);
+  setCache('mock', sanitized); // Use fixed key for mock
   emitSource('offline');
   return sanitized;
   }
@@ -67,7 +72,7 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   if (OFFLINE_MODE) {
     logger.info('Offline mode enabled - serving local sample data');
     const sanitized = sanitize((pipelineData.results || []) as RawPipelineRun[]);
-    setCache(sanitized);
+    setCache('offline', sanitized); // Use fixed key for offline
     emitSource('offline');
     return sanitized;
   }
@@ -75,15 +80,14 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   let raw: PipelineApiEnvelope | RawPipelineRun[] | undefined;
   let rawList: RawPipelineRun[];
   try {
-    const endpoint = buildEndpoint(opts);
-    raw = await fetchJson<PipelineApiEnvelope | RawPipelineRun[]>(`${baseUrl}${endpoint}`);
+    raw = await fetchJson<PipelineApiEnvelope | RawPipelineRun[]>(fullUrl);
   } catch (e: any) {
     // Network / timeout / HTTP error fallback: use bundled sample data (dev/demo mode only)
     if (import.meta.env.MODE !== 'test' && !STRICT_NO_FALLBACK) {
       logger.warn('API fetch failed, falling back to local sample data', { message: e?.message });
       rawList = (pipelineData.results || []) as RawPipelineRun[];
       const sanitized = sanitize(rawList);
-      setCache(sanitized);
+      setCache('fallback', sanitized); // Use fixed key for fallback
       emitSource('fallback');
       return sanitized;
     }
@@ -139,12 +143,10 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   }
 
   const sanitized = sanitize(rawList);
-  setCache(sanitized);
+  setCache(cacheKey, sanitized);
   emitSource('live');
   return sanitized;
-}
-
-function sanitize(raw: RawPipelineRun[]): PipelineRun[] {
+}function sanitize(raw: RawPipelineRun[]): PipelineRun[] {
   const sorted = raw
     .filter(r => r && (r.start_utc || r.start_local))
     .map<PipelineRun>((r: any) => {

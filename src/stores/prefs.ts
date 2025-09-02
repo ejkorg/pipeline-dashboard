@@ -20,7 +20,7 @@ export const usePrefsStore = defineStore('prefs', () => {
 
   // API query parameter controls
   function defaultsFromEnv() {
-    const path = import.meta.env['VITE_API_ENDPOINT_PATH'] || '/get_pipeline_info?limit=100&offset=0&all_data=false';
+  const path = import.meta.env['VITE_API_ENDPOINT_PATH'] || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
     const qIndex = path.indexOf('?');
     const query = qIndex >= 0 ? path.substring(qIndex + 1) : '';
     const sp = new URLSearchParams(query);

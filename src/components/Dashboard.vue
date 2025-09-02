@@ -243,7 +243,7 @@ onBeforeUnmount(() => {
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 const apiPath = computed(() => {
-  const basePath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
+  const basePath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
   const qIndex = basePath.indexOf('?');
   const path = qIndex >= 0 ? basePath.substring(0, qIndex) : basePath;
   const sp = new URLSearchParams(qIndex >= 0 ? basePath.substring(qIndex + 1) : '');

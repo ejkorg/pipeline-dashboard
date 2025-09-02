@@ -21,12 +21,28 @@
           <div class="font-medium">{{ run.environment || 'N/A' }}</div>
         </div>
         <div>
+          <div class="text-gray-500">Script</div>
+          <div class="font-medium">{{ run.script_name || 'N/A' }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">Type</div>
+          <div class="font-medium">{{ run.pipeline_type || 'N/A' }}</div>
+        </div>
+        <div>
           <div class="text-gray-500">Start (UTC)</div>
           <div class="font-mono">{{ run.start_utc }}</div>
         </div>
         <div>
           <div class="text-gray-500">End (UTC)</div>
           <div class="font-mono">{{ run.end_utc || '-' }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">Start (Local)</div>
+          <div class="font-mono">{{ run.start_local || '-' }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">End (Local)</div>
+          <div class="font-mono">{{ run.end_local || '-' }}</div>
         </div>
         <div>
           <div class="text-gray-500">Duration</div>
@@ -43,6 +59,14 @@
         <div>
           <div class="text-gray-500">Exit Code</div>
           <div class="font-mono">{{ run.exit_code ?? '-' }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">Status</div>
+          <div class="font-medium">{{ run.status || '-' }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">Date Code</div>
+          <div class="font-mono">{{ run.date_code || '-' }}</div>
         </div>
         <div class="col-span-2">
           <div class="text-gray-500">Output File</div>
