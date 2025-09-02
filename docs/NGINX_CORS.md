@@ -67,3 +67,6 @@ Backend vs NGINX
 
 Development note
 - In development, the Vite dev server is usually proxied to avoid CORS altogether. These configs are primarily for production deployments.
+
+Full example config
+- See `docs/nginx.example.conf` for a complete no-authorization, same-origin configuration serving the SPA and proxying the API without emitting CORS headers.
