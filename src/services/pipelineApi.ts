@@ -5,9 +5,9 @@ import { logger } from '@/utils/logger';
 import { getCache, setCache } from './cache';
 import { z } from 'zod';
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.253.112.87:8001';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://usaz15ls088:8080/pipeline-service';
 // Make the endpoint path configurable to adapt to backend changes without code edits
-const endpoint = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info';
+const endpoint = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const token = import.meta.env.VITE_API_TOKEN;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';

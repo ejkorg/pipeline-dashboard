@@ -22,7 +22,6 @@
           <option value="start_utc">Start Time</option>
             <option value="pipeline_name">Pipeline Name</option>
             <option value="elapsed_seconds">Duration</option>
-            <option value="rowcount">Row Count</option>
         </select>
         <button
           @click="toggleOrder"
@@ -71,8 +70,8 @@
           <tr role="row">
             <th class="py-3 px-4 text-left">Name</th>
             <th class="py-3 px-4 text-left">Start UTC</th>
+            <th class="py-3 px-4 text-left">End UTC</th>
             <th class="py-3 px-4 text-left">Duration</th>
-            <th class="py-3 px-4 text-left">Rows</th>
             <th class="py-3 px-4 text-left">Trend</th>
             <th class="py-3 px-4 text-left">Env</th>
           </tr>
@@ -97,10 +96,10 @@
               {{ formatDate(p.start_utc) }}
             </td>
             <td class="py-3 px-4">
-              {{ p.elapsed_human || (p.elapsed_seconds + 's') }}
+              {{ formatDate(p.end_utc) }}
             </td>
             <td class="py-3 px-4">
-              {{ p.rowcount.toLocaleString() }}
+              {{ p.elapsed_human || (p.elapsed_seconds + 's') }}
             </td>
             <td class="py-3 px-4">
               <span
@@ -163,7 +162,8 @@ const pageSizeProxy = pageSize;
 const prefs = usePrefsStore();
 const offlineMode = computed(() => prefs.offlineMode);
 
-function formatDate(iso: string) {
+function formatDate(iso?: string) {
+  if (!iso) return 'N/A';
   return new Date(iso).toISOString().replace('T', ' ').slice(0, 19);
 }
 
