@@ -157,6 +157,11 @@ const props = defineProps<{
 const { page, pageSize, search, sortKey, sortOrder, toggleOrder, paged, sorted, endIndex } =
   usePipelineFilters(() => props.pipelines);
 
+// alias for template binding name consistency
+const pageSizeProxy = pageSize;
+const prefs = usePrefsStore();
+const offlineMode = computed(() => prefs.offlineMode);
+
 // Debug logging
 console.log('📋 PipelineTable Debug:', {
   receivedPipelinesCount: props.pipelines.length,
