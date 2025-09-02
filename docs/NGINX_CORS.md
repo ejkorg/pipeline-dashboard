@@ -3,10 +3,10 @@
 If you’re serving the API behind NGINX at a path like `/pipeline-service`, you can add CORS headers so the dashboard can call it from another origin. Important: choose a single place to handle CORS (either NGINX or the backend middleware), not both. Duplicate headers cause confusion and can be rejected by browsers.
 
 Common scenarios
-- Authorization only (no cookies): simplest. You do NOT need credentials. Allow the `Authorization` header and specify your allowed origin(s).
+- No authorization: simplest. You do NOT need credentials. Allow common headers like `Content-Type` only, and specify your allowed origin(s).
 - Cookies / session auth: you MUST use exact origins (no `*`) and set `Access-Control-Allow-Credentials: true`. Avoid wildcard origins with credentials.
 
-Production + dev origins (no credentials)
+Production + dev origins (no credentials, no authorization)
 This example allows the production dashboard at `http://usaz15ls088:8080` and optionally a dev server like `http://localhost:5173`. If you don’t need dev, omit it.
 
 ```
@@ -22,7 +22,7 @@ location /pipeline-service/ {
     # CORS: allow specific origins, no credentials
     if ($cors_allow_origin != "") { add_header Access-Control-Allow-Origin $cors_allow_origin always; }
     add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-    add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+    add_header Access-Control-Allow-Headers "Content-Type" always;
     add_header Access-Control-Expose-Headers "Content-Length, Content-Range" always;
     add_header Vary Origin always;
 
@@ -39,7 +39,7 @@ location /pipeline-service/ {
 }
 ```
 
-Credentials scenario
+Credentials scenario (if you later add cookies/session auth)
 If you use cookies, enable credentials and enumerate exact origins. Do not use `*` with credentials.
 
 ```
@@ -54,7 +54,7 @@ location /pipeline-service/ {
     if ($cors_allow_origin != "") { add_header Access-Control-Allow-Origin $cors_allow_origin always; }
     add_header Access-Control-Allow-Credentials true always;
     add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-    add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+    add_header Access-Control-Allow-Headers "Content-Type" always;
     add_header Access-Control-Expose-Headers "Content-Length, Content-Range" always;
     add_header Vary Origin always;
     if ($request_method = OPTIONS) { add_header Access-Control-Max-Age 86400; add_header Content-Length 0; return 204; }

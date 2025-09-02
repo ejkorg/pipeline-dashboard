@@ -30,7 +30,6 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 // Make the summary endpoint configurable to match the pattern used in pipelineApi.ts
 const summaryEndpoint = import.meta.env['VITE_API_SUMMARY_ENDPOINT'] || '/pipelines';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
-const token = import.meta.env.VITE_API_TOKEN;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
 const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
 
@@ -45,9 +44,7 @@ function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: n
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const resp = await fetchWithTimeout(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-  });
+	const resp = await fetchWithTimeout(url);
   if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
   return (await resp.json()) as T;
 }
