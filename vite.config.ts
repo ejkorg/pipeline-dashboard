@@ -7,7 +7,7 @@ import Components from 'unplugin-vue-components/vite';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const base = env.VITE_BASE_PATH || '/pipeline-dashboard/';
-  const devProxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://usaz15ls088:8001';
+  const devProxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8001';
   return {
   base,
   plugins: [

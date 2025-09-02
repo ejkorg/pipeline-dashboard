@@ -26,7 +26,7 @@ type PipelineSummaryRaw = {
 	avg_rowcount: number;
 };
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.253.112.87:8001';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 // Make the summary endpoint configurable to match the pattern used in pipelineApi.ts
 const summaryEndpoint = import.meta.env['VITE_API_SUMMARY_ENDPOINT'] || '/pipelines';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;

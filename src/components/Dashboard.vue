@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
   }
 });
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://usaz15ls088:8080/pipeline-service';
+const apiBase = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 const apiPath = computed(() => {
   const basePath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
   const qIndex = basePath.indexOf('?');
