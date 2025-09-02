@@ -54,9 +54,20 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   const fullUrl = `${baseUrl}${endpoint}`;
   const cacheKey = fullUrl; // Use full URL as cache key to differentiate by query params
 
+  console.log('🌐 PipelineAPI Debug:', {
+    endpoint,
+    fullUrl,
+    cacheKey,
+    force,
+    opts
+  });
+
   if (!force) {
     const cached = getCache(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      console.log('💾 Using cached data:', cached.length, 'records');
+      return cached;
+    }
   }
 
   // Use mock data from src/data.js if VITE_USE_MOCK_DATA is set (but never during tests)
@@ -80,7 +91,15 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   let raw: PipelineApiEnvelope | RawPipelineRun[] | undefined;
   let rawList: RawPipelineRun[];
   try {
+    console.log('📡 Making API call to:', fullUrl);
     raw = await fetchJson<PipelineApiEnvelope | RawPipelineRun[]>(fullUrl);
+    console.log('📥 API Response received:', {
+      isArray: Array.isArray(raw),
+      length: Array.isArray(raw) ? raw.length : (raw?.results?.length || 'unknown'),
+      hasResults: !Array.isArray(raw) && raw?.results,
+      total: !Array.isArray(raw) ? raw?.total : 'N/A',
+      count: !Array.isArray(raw) ? raw?.count : 'N/A'
+    });
   } catch (e: any) {
     // Network / timeout / HTTP error fallback: use bundled sample data (dev/demo mode only)
     if (import.meta.env.MODE !== 'test' && !STRICT_NO_FALLBACK) {
@@ -143,6 +162,12 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   }
 
   const sanitized = sanitize(rawList);
+  console.log('🧹 Sanitization Debug:', {
+    rawCount: rawList.length,
+    sanitizedCount: sanitized.length,
+    sampleRaw: rawList.slice(0, 2),
+    sampleSanitized: sanitized.slice(0, 2)
+  });
   setCache(cacheKey, sanitized);
   emitSource('live');
   return sanitized;

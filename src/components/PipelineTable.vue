@@ -157,10 +157,36 @@ const props = defineProps<{
 const { page, pageSize, search, sortKey, sortOrder, toggleOrder, paged, sorted, endIndex } =
   usePipelineFilters(() => props.pipelines);
 
-// alias for template binding name consistency
-const pageSizeProxy = pageSize;
-const prefs = usePrefsStore();
-const offlineMode = computed(() => prefs.offlineMode);
+// Debug logging
+console.log('📋 PipelineTable Debug:', {
+  receivedPipelinesCount: props.pipelines.length,
+  pageSize: pageSize.value,
+  currentPage: page.value,
+  searchTerm: search.value,
+  pagedResultsCount: paged.value.length,
+  totalSortedCount: sorted.value.length
+});
+
+// Debug helper - can be called from browser console
+if (typeof window !== 'undefined') {
+  (window as any).debugPipelineTable = () => {
+    console.log('🔍 PipelineTable Debug Info:');
+    console.log('  Total pipelines received:', props.pipelines.length);
+    console.log('  Current page:', page.value);
+    console.log('  Page size:', pageSize.value);
+    console.log('  Search term:', search.value);
+    console.log('  Paged results:', paged.value.length);
+    console.log('  Total sorted:', sorted.value.length);
+    console.log('  Sample data:', props.pipelines.slice(0, 3));
+    return {
+      totalReceived: props.pipelines.length,
+      pageSize: pageSize.value,
+      currentPage: page.value,
+      displayed: paged.value.length,
+      search: search.value
+    };
+  };
+}
 
 function formatDate(iso?: string) {
   if (!iso) return 'N/A';

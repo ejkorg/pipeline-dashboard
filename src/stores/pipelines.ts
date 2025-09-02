@@ -43,6 +43,20 @@ export const usePipelinesStore = defineStore('pipelines', () => {
   if (error.value) error.value = null;
   // Source will already have been set by API layer via callback (to implement) else default to live
   if (!lastFetchSource.value) lastFetchSource.value = 'live';
+      console.log('📊 Pipelines Store Debug:', {
+        apiParams: {
+          limit: prefs.apiLimit,
+          offset: prefs.apiOffset,
+          allData: prefs.apiAllData
+        },
+        fetchedCount: list.length,
+        storedCount: pipelines.value.length,
+        firstFew: pipelines.value.slice(0, 3).map(p => ({
+          name: p.pipeline_name,
+          start: p.start_utc,
+          end: p.end_utc
+        }))
+      });
       if (trigger !== 'realtime') logger.info(`Pipelines updated (${trigger})`);
     } catch (e: any) {
       error.value = e?.message || 'Fetch failed';

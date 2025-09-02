@@ -40,7 +40,23 @@ export function usePipelineFilters(source: () => PipelineRun[]) {
 
   const startIndex = computed(() => (page.value - 1) * pageSize.value);
   const endIndex = computed(() => startIndex.value + pageSize.value);
-  const paged = computed(() => sorted.value.slice(startIndex.value, endIndex.value));
+  const paged = computed(() => {
+    const result = sorted.value.slice(startIndex.value, endIndex.value);
+    console.log('🔍 PipelineFilters Debug:', {
+      totalData: source().length,
+      filteredCount: filtered.value.length,
+      sortedCount: sorted.value.length,
+      pageSize: pageSize.value,
+      currentPage: page.value,
+      startIndex: startIndex.value,
+      endIndex: endIndex.value,
+      pagedCount: result.length,
+      searchTerm: search.value,
+      sortKey: sortKey.value,
+      sortOrder: sortOrder.value
+    });
+    return result;
+  });
 
   return { page, pageSize, search, sortKey, sortOrder, toggleOrder, filtered, sorted, paged, startIndex, endIndex };
 }
