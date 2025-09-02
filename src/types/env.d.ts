@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_STRICT_NO_FALLBACK?: string;
   readonly VITE_API_TOKEN?: string;
   readonly VITE_DEBUG_SCHEMA?: string;
+  readonly VITE_API_SUMMARY_ENDPOINT?: string;
 }
 
 interface ImportMeta {

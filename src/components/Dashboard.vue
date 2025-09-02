@@ -11,6 +11,27 @@
         </p>
       </div>
       <div class="flex gap-2 items-center flex-wrap">
+        <div class="flex items-end gap-2">
+          <label class="text-xs flex flex-col">
+            <span class="mb-1">Limit</span>
+            <input type="number" min="0" v-model.number="apiLimit" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
+          </label>
+          <label class="text-xs flex flex-col">
+            <span class="mb-1">Offset</span>
+            <input type="number" min="0" v-model.number="apiOffset" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
+          </label>
+          <label class="text-xs inline-flex items-center gap-2 mb-1">
+            <input type="checkbox" v-model="apiAllData" class="accent-indigo-600" />
+            <span>all_data</span>
+          </label>
+          <button
+            @click="load('manual')"
+            :disabled="loading"
+            class="px-3 py-2 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-500 disabled:opacity-50"
+            title="Apply query params and refresh"
+          >Apply</button>
+        </div>
+
         <button
           @click="load('manual')"
           :disabled="loading"
@@ -64,8 +85,9 @@
 
     <OfflineBanner :active="offlineMode" @disable="disableOffline" class="mt-1" />
 
-    <div v-if="error" class="p-4 border border-red-300 bg-red-50 dark:bg-red-900/30 rounded text-sm">
-      <p class="font-semibold text-red-700 dark:text-red-300">Error: {{ error }}</p>
+    <div v-if="error" class="p-4 border border-red-300 bg-red-50 dark:bg-red-900/30 rounded text-sm flex items-center gap-3">
+      <p class="font-semibold text-red-700 dark:text-red-300 flex-1">Error: {{ error }}</p>
+      <button class="px-3 py-1 rounded bg-red-600 text-white text-xs" @click="retryFetch">Retry</button>
     </div>
 
     <div v-if="loading && !pipelines.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -134,6 +156,11 @@ function disableOffline() {
   load('manual');
   store.startPolling();
   store.enableRealtime();
+}
+
+function retryFetch() {
+  toasts.push('Retrying fetch…', { type: 'info' });
+  load('manual');
 }
 
 function uniqueMerge(existing: any[], incoming: any[]) {
@@ -214,8 +241,22 @@ onBeforeUnmount(() => {
   }
 });
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://10.253.112.87:8001';
-const apiPath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info';
+const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://usaz15ls088:8080/pipeline-service';
+const apiPath = computed(() => {
+  const basePath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
+  const qIndex = basePath.indexOf('?');
+  const path = qIndex >= 0 ? basePath.substring(0, qIndex) : basePath;
+  const sp = new URLSearchParams(qIndex >= 0 ? basePath.substring(qIndex + 1) : '');
+  sp.set('limit', String(prefs.apiLimit));
+  sp.set('offset', String(prefs.apiOffset));
+  sp.set('all_data', prefs.apiAllData ? 'true' : 'false');
+  return `${path}?${sp.toString()}`;
+});
+
+// v-models for API params from prefs
+const apiLimit = computed({ get: () => prefs.apiLimit, set: v => prefs.setApiLimit(v) });
+const apiOffset = computed({ get: () => prefs.apiOffset, set: v => prefs.setApiOffset(v) });
+const apiAllData = computed({ get: () => prefs.apiAllData, set: v => prefs.setApiAllData(v) });
 
 const LazyPipelineDuration = defineAsyncComponent(() => import('./PipelineChart.vue'));
 const LazyRowCount = defineAsyncComponent(() => import('./RowCountChart.vue'));

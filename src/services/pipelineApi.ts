@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://usaz15ls088:8080/pipeline-service';
 // Make the endpoint path configurable to adapt to backend changes without code edits
-const endpoint = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
+const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=100&offset=0&all_data=false';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const token = import.meta.env.VITE_API_TOKEN;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
@@ -40,7 +40,18 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
-export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
+export function buildEndpoint({ limit, offset, all_data }: { limit?: number; offset?: number; all_data?: boolean } = {}): string {
+  // If a full path with query preset is provided via env, merge/override its query with incoming params
+  const qIndex = DEFAULT_ENDPOINT.indexOf('?');
+  const path = qIndex >= 0 ? DEFAULT_ENDPOINT.substring(0, qIndex) : DEFAULT_ENDPOINT;
+  const sp = new URLSearchParams(qIndex >= 0 ? DEFAULT_ENDPOINT.substring(qIndex + 1) : '');
+  if (limit != null) sp.set('limit', String(Math.max(0, Math.floor(limit))));
+  if (offset != null) sp.set('offset', String(Math.max(0, Math.floor(offset))));
+  if (all_data != null) sp.set('all_data', all_data ? 'true' : 'false');
+  return `${path}?${sp.toString()}`;
+}
+
+export async function getPipelineInfo(force = false, opts: { limit?: number; offset?: number; all_data?: boolean } = {}): Promise<PipelineRun[]> {
   if (!force) {
     const cached = getCache();
     if (cached) return cached;
@@ -67,6 +78,7 @@ export async function getPipelineInfo(force = false): Promise<PipelineRun[]> {
   let raw: PipelineApiEnvelope | RawPipelineRun[] | undefined;
   let rawList: RawPipelineRun[];
   try {
+    const endpoint = buildEndpoint(opts);
     raw = await fetchJson<PipelineApiEnvelope | RawPipelineRun[]>(`${baseUrl}${endpoint}`);
   } catch (e: any) {
     // Network / timeout / HTTP error fallback: use bundled sample data (dev/demo mode only)

@@ -1,5 +1,18 @@
 <template>
   <ErrorBoundary>
+    <template #fallback="{ error }">
+      <div class="min-h-screen flex items-center justify-center bg-red-50 dark:bg-red-950/40 p-6">
+        <div class="max-w-2xl w-full bg-white dark:bg-gray-900 border border-red-300 dark:border-red-800 rounded-xl shadow p-6">
+          <h2 class="text-xl font-bold text-red-700 dark:text-red-300 mb-2">Application Error</h2>
+          <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">The dashboard failed to render due to an error.</p>
+          <pre v-if="!isProd" class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded max-h-60 overflow-auto">{{ error?.message || String(error) }}</pre>
+          <div class="mt-4 flex gap-2">
+            <button class="px-3 py-2 rounded bg-indigo-600 text-white text-sm" @click="reloadPage">Reload</button>
+            <!-- Dev-only helper could be placed here if needed -->
+          </div>
+        </div>
+      </div>
+    </template>
     <div class="text-gray-800 dark:text-gray-200 min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
       <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center gap-4">
         <h1 class="text-2xl font-bold flex-1">Pipeline Dashboard(DEV)</h1>
@@ -37,4 +50,12 @@ import { usePipelinesStore } from '@/stores/pipelines';
 
 const pStore = usePipelinesStore();
 const { lastFetchSource } = storeToRefs(pStore);
+
+function reloadPage() {
+  // use globalThis for SSR/type safety
+  (globalThis as any).location?.reload();
+}
+
+// Avoid using import.meta in template expressions
+const isProd = import.meta.env.PROD;
 </script>

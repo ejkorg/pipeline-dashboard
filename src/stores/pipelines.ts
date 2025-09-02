@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch, onUnmounted, getCurrentInstance } from 'vue';
 import { getPipelineInfo, onPipelineSource } from '../services/pipelineApi';
+import { usePrefsStore } from './prefs';
 import type { PipelineRun } from '../types/pipeline';
 import { logger } from '../utils/logger';
 import { normalizePipelines } from '../utils/normalizePipeline';
@@ -24,6 +25,7 @@ export const usePipelinesStore = defineStore('pipelines', () => {
       60
   );
 
+  const prefs = usePrefsStore();
   const realtime = usePipelineRealtime();
   const polling = usePolling(() => fetchPipelines('poll'), () => pollSeconds.value * 1000);
 
@@ -31,7 +33,11 @@ export const usePipelinesStore = defineStore('pipelines', () => {
     loading.value = true;
     error.value = null;
     try {
-  const list = await getPipelineInfo();
+      const list = await getPipelineInfo(false, {
+        limit: prefs.apiLimit,
+        offset: prefs.apiOffset,
+        all_data: prefs.apiAllData,
+      } as any);
       pipelines.value = normalizePipelines(list);
       lastFetch.value = Date.now();
   if (error.value) error.value = null;
