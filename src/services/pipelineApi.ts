@@ -162,6 +162,7 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
       const exitRaw = r.exit_code ?? r.exitCode ?? r.code;
       const logFile = r.log_file ?? r.log ?? r.log_path ?? r.logPath;
       const outputFile = r.output_file ?? r.output ?? r.output_path ?? r.outputPath;
+      const archivedFile = r.archived_file ?? r.archived ?? r.archive_file ?? r.archivePath;
 
       const elapsedNum = Number(elapsedRaw) || 0;
       const rowsNum = Number(rowsRaw) || 0;
@@ -177,6 +178,7 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
         output_file: outputFile || undefined,
         rowcount: rowsNum,
         log_file: logFile || undefined,
+        archived_file: archivedFile || undefined,
         pid: isNaN(pidNum as number) ? undefined : pidNum,
         date_code: r.date_code ?? r.dateCode ?? undefined,
         pipeline_name: pipelineName || 'unknown',

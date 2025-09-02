@@ -8,6 +8,7 @@ export interface RawPipelineRun {
   output_file?: string;
   rowcount?: number | string;
   log_file?: string;
+  archived_file?: string;
   pid?: number | string;
   date_code?: string;
   pipeline_name?: string;
@@ -28,6 +29,7 @@ export interface PipelineRun {
   output_file?: string;
   rowcount: number;
   log_file?: string;
+  archived_file?: string;
   pid?: number;
   date_code?: string;
   pipeline_name: string;

@@ -71,10 +71,17 @@
         <div class="col-span-2">
           <div class="text-gray-500">Output File</div>
           <div class="font-mono break-all">{{ run.output_file || '-' }}</div>
+          <button v-if="run.output_file" class="mt-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" @click="viewFile(run.output_file!, 'output')">View</button>
         </div>
         <div class="col-span-2">
           <div class="text-gray-500">Log File</div>
           <div class="font-mono break-all">{{ run.log_file || '-' }}</div>
+          <button v-if="run.log_file" class="mt-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" @click="viewFile(run.log_file!, 'log')">View</button>
+        </div>
+        <div class="col-span-2">
+          <div class="text-gray-500">Archived File</div>
+          <div class="font-mono break-all">{{ run.archived_file || '-' }}</div>
+          <button v-if="run.archived_file" class="mt-1 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600" @click="viewFile(run.archived_file!, 'archive')">View</button>
         </div>
       </div>
       <div v-else-if="run && tab==='json'" class="text-xs">
@@ -91,8 +98,18 @@
 <script setup lang="ts">
 import type { PipelineRun } from '@/types/pipeline';
 import { ref } from 'vue';
+import { streamFile } from '@/services/fileService';
 
 defineProps<{ run: PipelineRun | null; otherRuns?: PipelineRun[] }>();
 const tab = ref<'overview' | 'json'>('overview');
 function pretty(o: any) { return JSON.stringify(o, null, 2); }
+
+async function viewFile(filePath: string, type: 'output' | 'log' | 'archive') {
+  try {
+    await streamFile(filePath, type);
+  } catch (error) {
+    console.error('Failed to view file:', error);
+    // Could show a toast notification here
+  }
+}
 </script>
