@@ -128,6 +128,19 @@
             </label>
           </div>
         </div>
+
+        <div class="text-xs flex flex-col">
+          <label for="preview-limit" class="mb-1">Archive preview (MB)</label>
+          <input
+            id="preview-limit"
+            type="number"
+            min="1"
+            max="1024"
+            class="px-2 py-2 text-sm border rounded w-28 dark:bg-gray-800 dark:border-gray-600"
+            v-model.number="archivePreviewMB"
+            :title="`Preview small .gz in browser up to ${archivePreviewMB}MB; larger files will download`"
+          />
+        </div>
       </div>
     </div>
 
@@ -160,7 +173,7 @@ import DetailsModal from '@/components/DetailsModal.vue';
 import PipelineTable from '@/components/PipelineTable.vue';
 import { exportJSON, exportCSV } from '@/utils/exporters';
 import OfflineBanner from '@/components/OfflineBanner.vue';
-import { pipelineData as bundledData } from '@/data.js';
+import { pipelineData as bundledData } from '@/data';
 import { normalizePipelines } from '@/utils/normalizePipeline';
 
 const store = usePipelinesStore();
@@ -305,6 +318,7 @@ const apiPath = computed(() => {
 const apiLimit = computed({ get: () => prefs.apiLimit, set: v => prefs.setApiLimit(v) });
 const apiOffset = computed({ get: () => prefs.apiOffset, set: v => prefs.setApiOffset(v) });
 const apiAllData = computed({ get: () => prefs.apiAllData, set: v => prefs.setApiAllData(v) });
+const archivePreviewMB = computed({ get: () => prefs.archivePreviewMaxMB, set: v => prefs.setArchivePreviewMaxMB(v) });
 
 // Validation state
 const limitError = ref('');

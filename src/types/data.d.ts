@@ -1,4 +1,4 @@
-declare module '@/data.js' {
+declare module '@/data' {
   import type { RawPipelineRun } from '@/types/pipeline';
   export const pipelineData: { total?: number; count?: number; results: RawPipelineRun[] };
 }

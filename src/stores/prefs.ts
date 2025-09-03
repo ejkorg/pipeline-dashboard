@@ -18,6 +18,16 @@ export const usePrefsStore = defineStore('prefs', () => {
   // Offline mode: do NOT persist by default; start live unless env forces offline.
   const offlineMode = ref(import.meta.env['VITE_OFFLINE_MODE'] === 'true');
 
+  // Archive preview threshold (in MB) for in-browser gzip preview; over this will download
+  function defaultArchivePreviewMaxMB() {
+    const envVal = Number(import.meta.env['VITE_ARCHIVE_PREVIEW_MAX_MB']);
+    if (!isNaN(envVal) && envVal > 0) return Math.min(1024, envVal); // cap at 1GB for safety
+    return 10; // sensible default
+  }
+  const archivePreviewMaxMB = ref<number>(
+    Number(localStorage.getItem('ui:archivePreviewMaxMB')) || defaultArchivePreviewMaxMB()
+  );
+
   // API query parameter controls
   function defaultsFromEnv() {
   const path = import.meta.env['VITE_API_ENDPOINT_PATH'] || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
@@ -49,6 +59,12 @@ export const usePrefsStore = defineStore('prefs', () => {
     apiOffset.value = Math.min(10000, Math.max(0, Math.floor(isNaN(value) ? 0 : value))); 
   }
   function setApiAllData(v: boolean) { apiAllData.value = !!v; }
+  function setArchivePreviewMaxMB(n: number) {
+    const mb = Math.floor(Number(n));
+    // Clamp to [1 .. 1024] MB to avoid extreme values
+    const clamped = Math.min(1024, Math.max(1, isNaN(mb) ? defaultArchivePreviewMaxMB() : mb));
+    archivePreviewMaxMB.value = clamped;
+  }
 
   // persistence
   watch(darkMode, v => localStorage.setItem('ui:darkMode', String(v)));
@@ -60,5 +76,27 @@ export const usePrefsStore = defineStore('prefs', () => {
   watch(apiLimit, v => localStorage.setItem('api:limit', String(v)));
   watch(apiOffset, v => localStorage.setItem('api:offset', String(v)));
   watch(apiAllData, v => localStorage.setItem('api:allData', String(v)));
-  return { darkMode, tablePageSize, sortKey, sortOrder, search, offlineMode, apiLimit, apiOffset, apiAllData, toggleDark, setPageSize, setSort, setSearch, toggleOffline, setOffline, setApiLimit, setApiOffset, setApiAllData };
+  watch(archivePreviewMaxMB, v => localStorage.setItem('ui:archivePreviewMaxMB', String(v)));
+  return {
+    darkMode,
+    tablePageSize,
+    sortKey,
+    sortOrder,
+    search,
+    offlineMode,
+    apiLimit,
+    apiOffset,
+    apiAllData,
+    archivePreviewMaxMB,
+    toggleDark,
+    setPageSize,
+    setSort,
+    setSearch,
+    toggleOffline,
+    setOffline,
+    setApiLimit,
+    setApiOffset,
+    setApiAllData,
+    setArchivePreviewMaxMB,
+  };
 });

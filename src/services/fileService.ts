@@ -3,7 +3,8 @@ import pako from 'pako';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
-const MAX_DECOMPRESS_SIZE = 10 * 1024 * 1024; // 10MB limit for decompression to ensure scalability
+// Default limit (10MB) if caller does not supply one
+const DEFAULT_MAX_DECOMPRESS_SIZE = 10 * 1024 * 1024;
 
 function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: number } = {}) {
   const { timeout = DEFAULT_TIMEOUT, ...rest } = options;
@@ -21,11 +22,16 @@ function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: n
  * @param fileType - Type of file (output, log, archive)
  * @returns Promise that resolves when streaming/display starts
  */
-export async function streamFile(filePath: string, fileType: 'output' | 'log' | 'archive'): Promise<void> {
+export async function streamFile(
+  filePath: string,
+  fileType: 'output' | 'log' | 'archive',
+  opts?: { maxPreviewBytes?: number }
+): Promise<void> {
   try {
     const fileUrl = `${baseUrl}${filePath}`;
 
     if (fileType === 'archive') {
+      const MAX_DECOMPRESS_SIZE = opts?.maxPreviewBytes ?? DEFAULT_MAX_DECOMPRESS_SIZE;
       // For archived .gz files, fetch, decompress, and display
       const response = await fetch(fileUrl, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);

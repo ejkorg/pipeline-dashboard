@@ -1,5 +1,5 @@
 import type { PipelineApiEnvelope, PipelineRun, RawPipelineRun } from '@/types/pipeline';
-import { pipelineData } from '@/data.js';
+import { pipelineData } from '@/data';
 import { ApiEnvelopeSchema } from '@/types/pipelineSchema';
 import { logger } from '@/utils/logger';
 import { getCache, setCache } from './cache';
@@ -133,9 +133,23 @@ export async function getPipelineInfo(
 
   // Use mock data from src/data.js if VITE_USE_MOCK_DATA is set (but never during tests)
   if (import.meta.env['VITE_USE_MOCK_DATA'] === 'true' && import.meta.env.MODE !== 'test') {
+    console.log('🔧 Mock mode check:', {
+      mockEnv: import.meta.env['VITE_USE_MOCK_DATA'],
+      mode: import.meta.env.MODE,
+      pipelineData: pipelineData,
+      resultsLength: pipelineData?.results?.length || 0,
+      pipelineDataType: typeof pipelineData,
+      hasResults: !!pipelineData?.results
+    });
+    if (!pipelineData || !pipelineData.results) {
+      console.error('❌ Mock data not loaded properly:', pipelineData);
+      throw new Error('Mock data not available');
+    }
     logger.info('Mock mode enabled - serving mock pipeline data from src/data.js');
     const rawList = (pipelineData.results || []) as RawPipelineRun[];
+    console.log('📊 Raw mock data:', rawList.slice(0, 2));
     const sanitized = sanitize(rawList);
+    console.log('✅ Sanitized mock data:', sanitized.slice(0, 2));
     setCache('mock', sanitized); // Use fixed key for mock
     emitSource('offline');
     return sanitized;

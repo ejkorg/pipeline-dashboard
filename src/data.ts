@@ -1,4 +1,6 @@
-export const pipelineData = {
+import type { PipelineApiEnvelope } from './types/pipeline';
+
+export const pipelineData: PipelineApiEnvelope = {
     "total": 114,
     "count": 100,
     "results": [

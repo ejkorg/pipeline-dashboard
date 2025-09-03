@@ -71,17 +71,72 @@
         <div class="col-span-2">
           <div class="text-gray-500">Output File</div>
           <div class="font-mono break-all">{{ run.output_file || '-' }}</div>
-          <button v-if="run.output_file" class="mt-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" @click="viewFile(run.output_file!, 'output')">View</button>
+          <div class="flex items-center gap-2 mt-1">
+            <button
+              v-if="run.output_file"
+              class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+              @click="viewFile(run.output_file!, 'output')"
+            >View</button>
+            <button
+              v-if="run.output_file"
+              class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              @click="copyUrl(run.output_file!)"
+              title="Copy full file URL"
+            >Copy URL</button>
+          </div>
         </div>
         <div class="col-span-2">
           <div class="text-gray-500">Log File</div>
           <div class="font-mono break-all">{{ run.log_file || '-' }}</div>
-          <button v-if="run.log_file" class="mt-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600" @click="viewFile(run.log_file!, 'log')">View</button>
+          <div class="flex items-center gap-2 mt-1">
+            <button
+              v-if="run.log_file"
+              class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+              @click="viewFile(run.log_file!, 'log')"
+            >View</button>
+            <button
+              v-if="run.log_file"
+              class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              @click="copyUrl(run.log_file!)"
+              title="Copy full file URL"
+            >Copy URL</button>
+          </div>
         </div>
         <div class="col-span-2">
           <div class="text-gray-500">Archived File</div>
           <div class="font-mono break-all text-xs" :title="run.archived_file || '-'">{{ run.archived_file || '-' }}</div>
-          <button v-if="run.archived_file" class="mt-1 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600" @click="viewFile(run.archived_file!, 'archive')">View</button>
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
+            <button
+              v-if="run.archived_file"
+              class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+              :disabled="checking"
+              @click="viewFile(run.archived_file!, 'archive')"
+            >
+              {{ checking ? 'Checking…' : 'View' }}
+            </button>
+            <button
+              v-if="run.archived_file"
+              class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
+              :disabled="checking"
+              @click="fetchArchiveMeta(run.archived_file!)"
+              title="Fetch metadata (size, type, last-modified)"
+            >Info</button>
+            <button
+              v-if="run.archived_file"
+              class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              @click="copyUrl(run.archived_file!)"
+              title="Copy full file URL"
+            >Copy URL</button>
+            <span v-if="run.archived_file" class="text-[10px] text-gray-500">Preview supported for small .gz files (≤ {{ prefs.archivePreviewMaxMB }}MB). Larger files will download.</span>
+          </div>
+          <div v-if="archiveMeta" class="mt-1 text-[11px] text-gray-600 dark:text-gray-300">
+            <span v-if="archiveMeta.exists">
+              <span v-if="archiveMeta.size != null">Size: {{ formatBytes(archiveMeta.size) }}</span>
+              <span v-if="archiveMeta.contentType"> • Type: {{ archiveMeta.contentType }}</span>
+              <span v-if="archiveMeta.lastModified"> • Last Modified: {{ archiveMeta.lastModified }}</span>
+            </span>
+            <span v-else>File not found</span>
+          </div>
         </div>
       </div>
       <div v-else-if="run && tab==='json'" class="text-xs">
@@ -98,20 +153,84 @@
 <script setup lang="ts">
 import type { PipelineRun } from '@/types/pipeline';
 import { ref } from 'vue';
-import { streamFile } from '@/services/fileService';
+import { streamFile, getFileMetadata } from '@/services/fileService';
+import { useToastsStore } from '@/stores/toasts';
+import { usePrefsStore } from '@/stores/prefs';
 
 defineProps<{ run: PipelineRun | null; otherRuns?: PipelineRun[] }>();
 const tab = ref<'overview' | 'json'>('overview');
 function pretty(o: any) { return JSON.stringify(o, null, 2); }
+const toasts = useToastsStore();
+const prefs = usePrefsStore();
+const checking = ref(false);
+const archiveMeta = ref<{ size?: number; lastModified?: string; contentType?: string; exists: boolean } | null>(null);
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
+
+function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  let n = bytes;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+function makeAbsolute(path: string) {
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+async function copyUrl(filePath: string) {
+  const absolutePath = makeAbsolute(filePath);
+  const fullUrl = `${baseUrl}${absolutePath}`;
+  try {
+    await navigator.clipboard.writeText(fullUrl);
+    toasts.push('File URL copied to clipboard', { type: 'success', timeoutMs: 2000 });
+  } catch {
+    // Fallback for clipboard API restrictions
+    const ta = document.createElement('textarea');
+    ta.value = fullUrl; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toasts.push('File URL copied to clipboard', { type: 'success', timeoutMs: 2000 });
+  }
+}
+
+async function fetchArchiveMeta(filePath: string) {
+  const absolutePath = makeAbsolute(filePath);
+  try {
+    checking.value = true;
+    const meta = await getFileMetadata(absolutePath);
+    archiveMeta.value = meta;
+  } catch (e) {
+    toasts.push('Failed to fetch metadata', { type: 'error' });
+  } finally {
+    checking.value = false;
+  }
+}
 
 async function viewFile(filePath: string, type: 'output' | 'log' | 'archive') {
   try {
     // Ensure filePath is treated as absolute by prepending base URL if not already
-    const absolutePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    await streamFile(absolutePath, type);
+    const absolutePath = makeAbsolute(filePath);
+    if (type === 'archive') {
+      checking.value = true;
+      const meta = await getFileMetadata(absolutePath);
+      checking.value = false;
+      archiveMeta.value = meta;
+      if (!meta.exists) {
+        toasts.push('Archived file not found on server', { type: 'error' });
+        return;
+      }
+      const limitBytes = prefs.archivePreviewMaxMB * 1024 * 1024;
+      if (meta.size && meta.size > limitBytes) {
+        toasts.push('Archive is large; downloading instead of previewing', { type: 'info' });
+      } else {
+        toasts.push('Opening archive preview…', { type: 'info' });
+      }
+    }
+  const maxPreviewBytes = prefs.archivePreviewMaxMB * 1024 * 1024;
+  await streamFile(absolutePath, type, { maxPreviewBytes });
   } catch (error) {
     console.error('Failed to view file:', error);
-    // Could integrate with a toast system here, e.g., via useToasts composable
+    toasts.push('Failed to open file. See console for details.', { type: 'error' });
   }
 }
 </script>
