@@ -6,12 +6,17 @@ import { getCache, setCache } from './cache';
 import { z } from 'zod';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
-// Make the endpoint path configurable to adapt to backend changes without code edits
-// Default to full dataset and all fields unless overridden via env
-const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
+
+// Default to a clean path; allow env to override. If env includes a query string,
+// we'll merge with it but also clamp unsafe values (e.g., limit > 1000).
+const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info';
+
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
 const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
+
+// Backend constraint: FastAPI validates limit <= 1000
+const LIMIT_MAX = 1000;
 
 // Allow consumers to observe the source of the last fetch.
 type SourceListener = (source: 'live' | 'offline' | 'fallback') => void;
@@ -21,6 +26,35 @@ export function onPipelineSource(listener: SourceListener) {
   return () => { listeners = listeners.filter(l => l !== listener); };
 }
 function emitSource(s: 'live' | 'offline' | 'fallback') { for (const l of listeners) l(s); }
+
+// Helper functions
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function toInt(value: any, fallback: number | undefined): number {
+  if (value == null) return fallback ?? 0;
+  const parsed = Number(value);
+  return isNaN(parsed) ? (fallback ?? 0) : Math.floor(parsed);
+}
+
+function toBool(value: any, fallback: boolean | undefined): boolean {
+  if (value == null) return fallback ?? false;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase();
+    return lower === 'true' || lower === '1' || lower === 'yes';
+  }
+  return Boolean(value);
+}
+
+function ensureLeadingSlash(path: string): string {
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function trimTrailingSlash(url: string): string {
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+}
 
 function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: number } = {}) {
   const { timeout = DEFAULT_TIMEOUT, ...rest } = options;
@@ -38,20 +72,47 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await resp.json()) as T;
 }
 
-export function buildEndpoint({ limit, offset, all_data }: { limit?: number; offset?: number; all_data?: boolean } = {}): string {
-  // If a full path with query preset is provided via env, merge/override its query with incoming params
+/**
+ * Build an endpoint path with query parameters, clamping limit to the server's maximum.
+ * - If VITE_API_ENDPOINT_PATH contains a query, we merge with it.
+ * - Defaults: limit=100, offset=0, all_data=true
+ */
+export function buildEndpoint({
+  limit,
+  offset,
+  all_data
+}: { limit?: number; offset?: number; all_data?: boolean } = {}): string {
+  // Split any query string provided via env
   const qIndex = DEFAULT_ENDPOINT.indexOf('?');
   const path = qIndex >= 0 ? DEFAULT_ENDPOINT.substring(0, qIndex) : DEFAULT_ENDPOINT;
+
+  // Start with any defaults present in env's query string
   const sp = new URLSearchParams(qIndex >= 0 ? DEFAULT_ENDPOINT.substring(qIndex + 1) : '');
-  if (limit != null) sp.set('limit', String(Math.max(0, Math.floor(limit))));
-  if (offset != null) sp.set('offset', String(Math.max(0, Math.floor(offset))));
-  if (all_data != null) sp.set('all_data', all_data ? 'true' : 'false');
-  return `${path}?${sp.toString()}`;
+
+  // Read defaults from env query (if present)
+  const envLimit = sp.has('limit') ? toInt(sp.get('limit'), undefined) : undefined;
+  const envOffset = sp.has('offset') ? toInt(sp.get('offset'), undefined) : undefined;
+  const envAllData = sp.get('all_data') ? toBool(sp.get('all_data'), true) : undefined;
+
+  // Resolve final values: incoming params override env defaults; then clamp/normalize
+  const finalLimit = clamp(toInt(limit, envLimit ?? 100), 1, LIMIT_MAX);
+  const finalOffset = Math.max(0, toInt(offset, envOffset ?? 0));
+  const finalAllData = all_data ?? envAllData ?? true;
+
+  sp.set('limit', String(finalLimit));
+  sp.set('offset', String(finalOffset));
+  sp.set('all_data', finalAllData ? 'true' : 'false');
+
+  const query = sp.toString();
+  return query ? `${ensureLeadingSlash(path)}?${query}` : ensureLeadingSlash(path);
 }
 
-export async function getPipelineInfo(force = false, opts: { limit?: number; offset?: number; all_data?: boolean } = {}): Promise<PipelineRun[]> {
+export async function getPipelineInfo(
+  force = false,
+  opts: { limit?: number; offset?: number; all_data?: boolean } = {}
+): Promise<PipelineRun[]> {
   const endpoint = buildEndpoint(opts);
-  const fullUrl = `${baseUrl}${endpoint}`;
+  const fullUrl = `${trimTrailingSlash(baseUrl)}${endpoint}`;
   const cacheKey = fullUrl; // Use full URL as cache key to differentiate by query params
 
   console.log('🌐 PipelineAPI Debug:', {
@@ -73,12 +134,13 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   // Use mock data from src/data.js if VITE_USE_MOCK_DATA is set (but never during tests)
   if (import.meta.env['VITE_USE_MOCK_DATA'] === 'true' && import.meta.env.MODE !== 'test') {
     logger.info('Mock mode enabled - serving mock pipeline data from src/data.js');
-  const rawList = (pipelineData.results || []) as RawPipelineRun[];
-  const sanitized = sanitize(rawList);
-  setCache('mock', sanitized); // Use fixed key for mock
-  emitSource('offline');
-  return sanitized;
+    const rawList = (pipelineData.results || []) as RawPipelineRun[];
+    const sanitized = sanitize(rawList);
+    setCache('mock', sanitized); // Use fixed key for mock
+    emitSource('offline');
+    return sanitized;
   }
+
   // Explicit offline mode short-circuits network access
   if (OFFLINE_MODE) {
     logger.info('Offline mode enabled - serving local sample data');
@@ -148,9 +210,11 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
       if (import.meta.env['VITE_DEBUG_SCHEMA'] === 'true') {
         try {
           logger.warn('Offending payload snippet', JSON.stringify(raw).slice(0, 2000));
-        } catch {/* ignore */}
+        } catch {
+          /* ignore */
+        }
       }
-  if (import.meta.env.MODE !== 'test' && !STRICT_NO_FALLBACK) {
+      if (import.meta.env.MODE !== 'test' && !STRICT_NO_FALLBACK) {
         logger.warn('Schema validation failed; using local sample data fallback');
         rawList = (pipelineData.results || []) as RawPipelineRun[];
       } else {
@@ -171,7 +235,9 @@ export async function getPipelineInfo(force = false, opts: { limit?: number; off
   setCache(cacheKey, sanitized);
   emitSource('live');
   return sanitized;
-}function sanitize(raw: RawPipelineRun[]): PipelineRun[] {
+}
+
+function sanitize(raw: RawPipelineRun[]): PipelineRun[] {
   const sorted = raw
     .filter(r => r && (r.start_utc || r.start_local))
     .map<PipelineRun>((r: any) => {

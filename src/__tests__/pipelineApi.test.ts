@@ -325,3 +325,51 @@ describe('pipelineApi.getPipelineInfo', () => {
         expect(second?.trend).toBeDefined(); // the older one should have some trend (probably flat or calculated)
     });
 });
+
+describe('pipelineApi.buildEndpoint', () => {
+    it('clamps limit to 1000 maximum', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint({ limit: 5000 });
+        expect(endpoint).toBe('/get_pipeline_info?limit=1000&offset=0&all_data=true');
+    });
+
+    it('uses default limit of 100 when no limit provided', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint();
+        expect(endpoint).toBe('/get_pipeline_info?limit=100&offset=0&all_data=true');
+    });
+
+    it('allows limit values within valid range', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint({ limit: 500 });
+        expect(endpoint).toBe('/get_pipeline_info?limit=500&offset=0&all_data=true');
+    });
+
+    it('clamps minimum limit to 1', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint({ limit: -10 });
+        expect(endpoint).toBe('/get_pipeline_info?limit=1&offset=0&all_data=true');
+    });
+
+    it('handles string limit values by converting and clamping', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint({ limit: '2000' as any });
+        expect(endpoint).toBe('/get_pipeline_info?limit=1000&offset=0&all_data=true');
+    });
+
+    it('uses default values for offset and all_data when not provided', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint({ limit: 250 });
+        expect(endpoint).toBe('/get_pipeline_info?limit=250&offset=0&all_data=true');
+    });
+
+    it('properly handles all parameters together', async () => {
+        const { buildEndpoint } = await freshApi();
+        const endpoint = buildEndpoint({ 
+            limit: 800, 
+            offset: 10, 
+            all_data: false 
+        });
+        expect(endpoint).toBe('/get_pipeline_info?limit=800&offset=10&all_data=false');
+    });
+});
