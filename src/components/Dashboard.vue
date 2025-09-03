@@ -327,6 +327,9 @@ function handleLimitInput(event: Event) {
   const input = event.target as HTMLInputElement;
   let value = parseInt(input.value) || 0;
   
+  // Check if the user tried to input more than the maximum
+  const userAttemptedOverMax = value > MAX_VALUE;
+  
   // Clamp the value
   if (value < MIN_VALUE) value = MIN_VALUE;
   if (value > MAX_VALUE) value = MAX_VALUE;
@@ -334,7 +337,13 @@ function handleLimitInput(event: Event) {
   // Update the input and model
   input.value = String(value);
   apiLimit.value = value;
-  limitError.value = validateNumericInput(value, 'Limit');
+  
+  // Set error message
+  if (userAttemptedOverMax) {
+    limitError.value = `Limit maximum allowed is ${MAX_VALUE.toLocaleString()}. Value has been clamped.`;
+  } else {
+    limitError.value = validateNumericInput(value, 'Limit');
+  }
 }
 
 function handleOffsetInput(event: Event) {

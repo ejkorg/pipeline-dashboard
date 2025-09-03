@@ -327,10 +327,10 @@ describe('pipelineApi.getPipelineInfo', () => {
 });
 
 describe('pipelineApi.buildEndpoint', () => {
-    it('clamps limit to 1000 maximum', async () => {
+    it('clamps limit to 10000 maximum', async () => {
         const { buildEndpoint } = await freshApi();
-        const endpoint = buildEndpoint({ limit: 5000 });
-        expect(endpoint).toBe('/get_pipeline_info?limit=1000&offset=0&all_data=true');
+        const endpoint = buildEndpoint({ limit: 50000 });
+        expect(endpoint).toBe('/get_pipeline_info?limit=10000&offset=0&all_data=true');
     });
 
     it('uses default limit of 100 when no limit provided', async () => {
@@ -353,8 +353,8 @@ describe('pipelineApi.buildEndpoint', () => {
 
     it('handles string limit values by converting and clamping', async () => {
         const { buildEndpoint } = await freshApi();
-        const endpoint = buildEndpoint({ limit: '2000' as any });
-        expect(endpoint).toBe('/get_pipeline_info?limit=1000&offset=0&all_data=true');
+        const endpoint = buildEndpoint({ limit: '20000' as any });
+        expect(endpoint).toBe('/get_pipeline_info?limit=10000&offset=0&all_data=true');
     });
 
     it('uses default values for offset and all_data when not provided', async () => {
