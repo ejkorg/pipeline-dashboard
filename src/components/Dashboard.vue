@@ -14,7 +14,8 @@
         <div class="flex items-end gap-2">
           <label class="text-xs flex flex-col">
             <span class="mb-1">Limit</span>
-            <input type="number" min="0" v-model.number="apiLimit" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
+            <input type="number" min="1" :max="LIMIT_MAX" v-model.number="apiLimit" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
+            <div v-if="limitHint" class="text-xs text-amber-600 dark:text-amber-400 mt-1">{{ limitHint }}</div>
           </label>
           <label class="text-xs flex flex-col">
             <span class="mb-1">Offset</span>
@@ -114,6 +115,7 @@ import { exportJSON, exportCSV } from '@/utils/exporters';
 import OfflineBanner from '@/components/OfflineBanner.vue';
 import { pipelineData as bundledData } from '@/data.js';
 import { normalizePipelines } from '@/utils/normalizePipeline';
+import { LIMIT_MAX } from '@/services/pipelineApi';
 
 const store = usePipelinesStore();
 const prefs = usePrefsStore();
@@ -142,6 +144,7 @@ function onSelectionChange(keys: string[]) {
 const load = (trigger: string = 'manual') => store.fetchPipelines(trigger);
 const offlineMode = computed(() => prefs.offlineMode);
 const mergeImport = ref(false);
+const limitHint = ref('');
 
 function enableOffline() {
   prefs.setOffline(true);
@@ -254,7 +257,21 @@ const apiPath = computed(() => {
 });
 
 // v-models for API params from prefs
-const apiLimit = computed({ get: () => prefs.apiLimit, set: v => prefs.setApiLimit(v) });
+const apiLimit = computed({ 
+  get: () => prefs.apiLimit, 
+  set: v => {
+    const numValue = Number(v) || 1;
+    const clampedValue = Math.max(1, Math.min(LIMIT_MAX, numValue));
+    
+    if (numValue > LIMIT_MAX) {
+      limitHint.value = `Maximum allowed is ${LIMIT_MAX}. Using ${LIMIT_MAX}.`;
+    } else {
+      limitHint.value = '';
+    }
+    
+    prefs.setApiLimit(clampedValue);
+  }
+});
 const apiOffset = computed({ get: () => prefs.apiOffset, set: v => prefs.setApiOffset(v) });
 const apiAllData = computed({ get: () => prefs.apiAllData, set: v => prefs.setApiAllData(v) });
 

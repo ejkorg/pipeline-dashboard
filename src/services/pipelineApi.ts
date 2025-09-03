@@ -8,15 +8,15 @@ import { z } from 'zod';
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 
 // Default to a clean path; allow env to override. If env includes a query string,
-// we'll merge with it but also clamp unsafe values (e.g., limit > 1000).
+// we'll merge with it but also clamp unsafe values (e.g., limit > 10000).
 const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info';
 
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
 const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
 
-// Backend constraint: FastAPI validates limit <= 1000
-const LIMIT_MAX = 1000;
+// Backend constraint: FastAPI validates limit <= 10000
+export const LIMIT_MAX = 10000;
 
 // Allow consumers to observe the source of the last fetch.
 type SourceListener = (source: 'live' | 'offline' | 'fallback') => void;
