@@ -14,7 +14,14 @@
         <div class="flex items-end gap-2">
           <label class="text-xs flex flex-col">
             <span class="mb-1">Limit</span>
-            <input type="number" min="0" v-model.number="apiLimit" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
+            <input
+              type="number"
+              min="1"
+              :max="LIMIT_MAX"
+              v-model.number="apiLimit"
+              class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600"
+            />
+            <p v-if="limitWarning" class="text-[10px] text-amber-600 mt-1">{{ limitWarning }}</p>
           </label>
           <label class="text-xs flex flex-col">
             <span class="mb-1">Offset</span>
@@ -114,6 +121,7 @@ import { exportJSON, exportCSV } from '@/utils/exporters';
 import OfflineBanner from '@/components/OfflineBanner.vue';
 import { pipelineData as bundledData } from '@/data.js';
 import { normalizePipelines } from '@/utils/normalizePipeline';
+import { LIMIT_MAX } from '@/services/pipelineApi';
 
 const store = usePipelinesStore();
 const prefs = usePrefsStore();
@@ -142,6 +150,9 @@ function onSelectionChange(keys: string[]) {
 const load = (trigger: string = 'manual') => store.fetchPipelines(trigger);
 const offlineMode = computed(() => prefs.offlineMode);
 const mergeImport = ref(false);
+
+// Inline hint for exceeding max limit
+const limitWarning = ref('');
 
 function enableOffline() {
   prefs.setOffline(true);
@@ -243,7 +254,7 @@ onBeforeUnmount(() => {
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 const apiPath = computed(() => {
-  const basePath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
+  const basePath = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info'; // clean fallback
   const qIndex = basePath.indexOf('?');
   const path = qIndex >= 0 ? basePath.substring(0, qIndex) : basePath;
   const sp = new URLSearchParams(qIndex >= 0 ? basePath.substring(qIndex + 1) : '');
@@ -253,8 +264,24 @@ const apiPath = computed(() => {
   return `${path}?${sp.toString()}`;
 });
 
-// v-models for API params from prefs
-const apiLimit = computed({ get: () => prefs.apiLimit, set: v => prefs.setApiLimit(v) });
+// v-models for API params from prefs (clamp + hint on set)
+const apiLimit = computed({
+  get: () => prefs.apiLimit,
+  set: v => {
+    let n = Number(v);
+    if (!Number.isFinite(n)) n = 1;
+    if (n < 1) n = 1;
+    if (n > LIMIT_MAX) {
+      limitWarning.value = `Maximum allowed is ${LIMIT_MAX}. Using ${LIMIT_MAX}.`;
+      n = LIMIT_MAX;
+    } else {
+      limitWarning.value = '';
+    }
+    prefs.setApiLimit(n);
+  }
+});
+
+// Keep existing bindings for offset/all_data
 const apiOffset = computed({ get: () => prefs.apiOffset, set: v => prefs.setApiOffset(v) });
 const apiAllData = computed({ get: () => prefs.apiAllData, set: v => prefs.setApiAllData(v) });
 

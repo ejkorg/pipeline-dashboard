@@ -9,6 +9,9 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 // Make the endpoint path configurable to adapt to backend changes without code edits
 // Default to full dataset and all fields unless overridden via env
 const DEFAULT_ENDPOINT = import.meta.env.VITE_API_ENDPOINT_PATH || '/get_pipeline_info?limit=10000&offset=0&all_data=true';
+
+// Export server-side maximum limit for UI consistency
+export const LIMIT_MAX = 1000;
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
 const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
 const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
@@ -43,7 +46,7 @@ export function buildEndpoint({ limit, offset, all_data }: { limit?: number; off
   const qIndex = DEFAULT_ENDPOINT.indexOf('?');
   const path = qIndex >= 0 ? DEFAULT_ENDPOINT.substring(0, qIndex) : DEFAULT_ENDPOINT;
   const sp = new URLSearchParams(qIndex >= 0 ? DEFAULT_ENDPOINT.substring(qIndex + 1) : '');
-  if (limit != null) sp.set('limit', String(Math.max(0, Math.floor(limit))));
+  if (limit != null) sp.set('limit', String(Math.max(0, Math.min(LIMIT_MAX, Math.floor(limit)))));
   if (offset != null) sp.set('offset', String(Math.max(0, Math.floor(offset))));
   if (all_data != null) sp.set('all_data', all_data ? 'true' : 'false');
   return `${path}?${sp.toString()}`;
