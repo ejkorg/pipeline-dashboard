@@ -8,6 +8,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const base = env.VITE_BASE_PATH || '/pipeline-dashboard/';
   const devProxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8001';
+  // Some upstreams are mounted under "/pipeline-service" and require preserving the prefix.
+  // Control whether we strip the prefix when proxying in dev via env:
+  // - VITE_DEV_PROXY_STRIP_PREFIX=true  (default) -> strip "/pipeline-service"
+  // - VITE_DEV_PROXY_STRIP_PREFIX=false -> preserve "/pipeline-service" in upstream request
+  const stripPrefix = env.VITE_DEV_PROXY_STRIP_PREFIX !== 'false';
   return {
   base,
   plugins: [
@@ -39,7 +44,8 @@ export default defineConfig(({ mode }) => {
       '/pipeline-service': {
         target: devProxyTarget,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/pipeline-service/, ''),
+        // Conditionally strip the prefix; when false, preserve /pipeline-service for upstreams
+        ...(stripPrefix ? { rewrite: (path: string) => path.replace(/^\/pipeline-service/, '') } : {}),
         // keep headers simple; upstream nginx handles auth/headers if needed
       }
     }

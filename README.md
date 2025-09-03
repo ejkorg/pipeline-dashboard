@@ -31,6 +31,38 @@ See `.env.example`. Notable flags:
 | `VITE_STRICT_NO_FALLBACK` | Disable silent sample fallback |
 | `VITE_DEBUG_SCHEMA` | Log failing payload snippet |
 
+## Dev Proxy tip (FastAPI mounted under /pipeline-service)
+In development, Vite proxies `/pipeline-service/*` to your backend at `VITE_DEV_PROXY_TARGET`.
+By default it strips the `/pipeline-service` prefix before forwarding. If your upstream is actually mounted under `/pipeline-service` (as in your FastAPI reporting `/pipeline-service/openapi.json`), keep the prefix by adding a `.env.local` with:
+
+```
+VITE_DEV_PROXY_TARGET=http://127.0.0.1:8001
+VITE_DEV_PROXY_STRIP_PREFIX=false
+```
+
+Then the dashboard will call `http://127.0.0.1:5173/pipeline-service/...` and the dev proxy will forward requests as `http://127.0.0.1:8001/pipeline-service/...` to match your upstream.
+
+## Deployment (Option 2: NGINX front, uvicorn on loopback)
+Recommended for intranet servers:
+- Run FastAPI (uvicorn) bound to `127.0.0.1:8001` (see `docs/SYSTEMD_UVICORN_SAMPLE.md`).
+- Put NGINX on a reachable port (e.g., 8080) and preserve the `/pipeline-service` prefix (see `docs/nginx.example.conf` lines under `location /pipeline-service/ { proxy_pass http://pipeline-service; }`).
+- Access API via: `http://<host>:8080/pipeline-service/get_pipeline_info?...`
+
+Develop locally but point to loopback upstream (if you’re on the server):
+
+```
+VITE_DEV_PROXY_TARGET=http://127.0.0.1:8001
+VITE_DEV_PROXY_STRIP_PREFIX=false
+```
+
+Or tunnel remote loopback to your machine:
+
+```
+ssh -N -L 8001:127.0.0.1:8001 user@<host>
+VITE_DEV_PROXY_TARGET=http://localhost:8001
+VITE_DEV_PROXY_STRIP_PREFIX=false
+```
+
 ## Onboarding Resources
 New or ramping up? Start here:
 | Document | Purpose |

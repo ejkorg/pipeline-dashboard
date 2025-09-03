@@ -11,7 +11,8 @@
     "lint": "eslint . --ext .ts,.tsx,.vue --max-warnings=0",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:ui": "vitest"
+    "test:ui": "vitest",
+    "package:conversation": "bash scripts/package-conversation.sh"
   },
   "dependencies": {
     "axios": "^1.11.0",
