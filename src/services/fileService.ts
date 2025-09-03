@@ -1,7 +1,9 @@
 import { logger } from '@/utils/logger';
+import pako from 'pako';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
 const DEFAULT_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT_MS) || 10000;
+const MAX_DECOMPRESS_SIZE = 10 * 1024 * 1024; // 10MB limit for decompression to ensure scalability
 
 function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: number } = {}) {
   const { timeout = DEFAULT_TIMEOUT, ...rest } = options;
@@ -15,26 +17,49 @@ function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: n
 
 /**
  * Stream a file from the backend API
- * @param filePath - The file path to stream
+ * @param filePath - The file path to stream (should be absolute or relative to baseUrl)
  * @param fileType - Type of file (output, log, archive)
- * @returns Promise that resolves when streaming starts
+ * @returns Promise that resolves when streaming/display starts
  */
 export async function streamFile(filePath: string, fileType: 'output' | 'log' | 'archive'): Promise<void> {
   try {
     const fileUrl = `${baseUrl}${filePath}`;
 
     if (fileType === 'archive') {
-      // For archived files, trigger download
-      const link = document.createElement('a');
-      link.href = fileUrl;
-      link.download = filePath.split('/').pop() || `archive.${filePath.endsWith('.gz') ? 'gz' : 'zip'}`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      logger.info('Archive file download initiated', { filePath });
+      // For archived .gz files, fetch, decompress, and display
+      const response = await fetch(fileUrl, { method: 'GET' });
+      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+
+      const contentLength = response.headers.get('content-length');
+      const size = contentLength ? parseInt(contentLength, 10) : 0;
+
+      if (size > MAX_DECOMPRESS_SIZE) {
+        // For large files, fall back to download to avoid performance issues
+        logger.warn('Archive file too large for decompression, triggering download', { filePath, size });
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = filePath.split('/').pop() || `archive.${filePath.endsWith('.gz') ? 'gz' : 'zip'}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
+      // Fetch as array buffer for binary data
+      const arrayBuffer = await response.arrayBuffer();
+      const compressedData = new Uint8Array(arrayBuffer);
+
+      // Decompress using pako
+      const decompressedData = pako.ungzip(compressedData, { to: 'string' }); // Assumes text content
+
+      // Create a blob and open in new tab for viewing
+      const blob = new Blob([decompressedData], { type: 'text/plain' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      logger.info('Archive file decompressed and opened in new tab', { filePath, originalSize: size });
     } else {
-      // For text files, open in new tab
+      // For text files, open in new tab (existing behavior)
       window.open(fileUrl, '_blank');
       logger.info('File opened in new tab', { filePath, fileType });
     }

@@ -80,7 +80,7 @@
         </div>
         <div class="col-span-2">
           <div class="text-gray-500">Archived File</div>
-          <div class="font-mono break-all">{{ run.archived_file || '-' }}</div>
+          <div class="font-mono break-all text-xs" :title="run.archived_file || '-'">{{ run.archived_file || '-' }}</div>
           <button v-if="run.archived_file" class="mt-1 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600" @click="viewFile(run.archived_file!, 'archive')">View</button>
         </div>
       </div>
@@ -106,10 +106,12 @@ function pretty(o: any) { return JSON.stringify(o, null, 2); }
 
 async function viewFile(filePath: string, type: 'output' | 'log' | 'archive') {
   try {
-    await streamFile(filePath, type);
+    // Ensure filePath is treated as absolute by prepending base URL if not already
+    const absolutePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    await streamFile(absolutePath, type);
   } catch (error) {
     console.error('Failed to view file:', error);
-    // Could show a toast notification here
+    // Could integrate with a toast system here, e.g., via useToasts composable
   }
 }
 </script>
