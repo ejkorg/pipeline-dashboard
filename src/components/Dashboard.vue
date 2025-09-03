@@ -10,26 +10,74 @@
           Updated: {{ lastUpdated.toLocaleTimeString() }}
         </p>
       </div>
-      <div class="flex gap-2 items-center flex-wrap">
-        <div class="flex items-end gap-2">
-          <label class="text-xs flex flex-col">
-            <span class="mb-1">Limit</span>
-            <input type="number" min="0" v-model.number="apiLimit" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
-          </label>
-          <label class="text-xs flex flex-col">
-            <span class="mb-1">Offset</span>
-            <input type="number" min="0" v-model.number="apiOffset" class="px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600" />
-          </label>
-          <label class="text-xs inline-flex items-center gap-2 mb-1">
-            <input type="checkbox" v-model="apiAllData" class="accent-indigo-600" />
-            <span>all_data</span>
-          </label>
-          <button
-            @click="load('manual')"
-            :disabled="loading"
-            class="px-3 py-2 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-500 disabled:opacity-50"
-            title="Apply query params and refresh"
-          >Apply</button>
+      <div class="flex gap-2 items-start flex-wrap">
+        <div class="flex items-end gap-2 flex-wrap">
+          <div class="flex flex-col">
+            <label for="limit-input" class="text-xs mb-1">Limit</label>
+            <input 
+              id="limit-input"
+              type="number" 
+              min="0" 
+              max="10000"
+              v-model.number="apiLimit"
+              @input="handleLimitInput"
+              @paste="(e) => handlePaste(e, handleLimitInput)"
+              @blur="handleLimitInput"
+              :class="[
+                'px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600',
+                limitError ? 'border-red-500 dark:border-red-500' : ''
+              ]"
+              :aria-invalid="!!limitError"
+              :aria-describedby="limitError ? 'limit-error' : undefined"
+            />
+            <div v-if="limitError" id="limit-error" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
+              {{ limitError }}
+            </div>
+          </div>
+          <div class="flex flex-col">
+            <label for="offset-input" class="text-xs mb-1">Offset</label>
+            <input 
+              id="offset-input"
+              type="number" 
+              min="0" 
+              max="10000"
+              v-model.number="apiOffset"
+              @input="handleOffsetInput"
+              @paste="(e) => handlePaste(e, handleOffsetInput)"
+              @blur="handleOffsetInput"
+              :class="[
+                'px-2 py-2 text-sm border rounded w-24 dark:bg-gray-800 dark:border-gray-600',
+                offsetError ? 'border-red-500 dark:border-red-500' : ''
+              ]"
+              :aria-invalid="!!offsetError"
+              :aria-describedby="offsetError ? 'offset-error' : undefined"
+            />
+            <div v-if="offsetError" id="offset-error" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
+              {{ offsetError }}
+            </div>
+          </div>
+          <div class="flex flex-col justify-end">
+            <label class="text-xs inline-flex items-center gap-2 mb-1 h-9">
+              <input type="checkbox" v-model="apiAllData" class="accent-indigo-600" />
+              <span>all_data</span>
+            </label>
+          </div>
+          <div class="flex flex-col justify-end">
+            <button
+              @click="load('manual')"
+              :disabled="loading || !formValid"
+              :class="[
+                'px-3 py-2 rounded text-sm h-9',
+                (loading || !formValid) 
+                  ? 'bg-gray-400 text-white cursor-not-allowed opacity-50' 
+                  : 'bg-indigo-600 text-white hover:bg-indigo-500'
+              ]"
+              :title="!formValid ? 'Please fix validation errors before applying' : 'Apply query params and refresh'"
+              :aria-disabled="loading || !formValid"
+            >
+              Apply
+            </button>
+          </div>
         </div>
 
         <button
@@ -101,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, onMounted, onBeforeUnmount, computed, ref } from 'vue';
+import { defineAsyncComponent, onMounted, onBeforeUnmount, computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { usePipelinesStore } from '@/stores/pipelines';
  // Removed unused import of PipelineDataSample
@@ -257,6 +305,70 @@ const apiPath = computed(() => {
 const apiLimit = computed({ get: () => prefs.apiLimit, set: v => prefs.setApiLimit(v) });
 const apiOffset = computed({ get: () => prefs.apiOffset, set: v => prefs.setApiOffset(v) });
 const apiAllData = computed({ get: () => prefs.apiAllData, set: v => prefs.setApiAllData(v) });
+
+// Validation state
+const limitError = ref('');
+const offsetError = ref('');
+const MAX_VALUE = 10000;
+const MIN_VALUE = 0;
+
+// Validation functions
+function validateNumericInput(value: number, fieldName: string): string {
+  if (isNaN(value) || value < MIN_VALUE) {
+    return `${fieldName} must be at least ${MIN_VALUE}`;
+  }
+  if (value > MAX_VALUE) {
+    return `${fieldName} maximum allowed is ${MAX_VALUE.toLocaleString()}`;
+  }
+  return '';
+}
+
+function handleLimitInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  let value = parseInt(input.value) || 0;
+  
+  // Clamp the value
+  if (value < MIN_VALUE) value = MIN_VALUE;
+  if (value > MAX_VALUE) value = MAX_VALUE;
+  
+  // Update the input and model
+  input.value = String(value);
+  apiLimit.value = value;
+  limitError.value = validateNumericInput(value, 'Limit');
+}
+
+function handleOffsetInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  let value = parseInt(input.value) || 0;
+  
+  // Clamp the value
+  if (value < MIN_VALUE) value = MIN_VALUE;
+  if (value > MAX_VALUE) value = MAX_VALUE;
+  
+  // Update the input and model
+  input.value = String(value);
+  apiOffset.value = value;
+  offsetError.value = validateNumericInput(value, 'Offset');
+}
+
+function handlePaste(event: ClipboardEvent, handler: (e: Event) => void) {
+  // Let the paste happen, then process it
+  setTimeout(() => {
+    handler(event as any);
+  }, 0);
+}
+
+// Watch for external changes to validate
+watch(apiLimit, (newVal) => {
+  limitError.value = validateNumericInput(newVal, 'Limit');
+});
+
+watch(apiOffset, (newVal) => {
+  offsetError.value = validateNumericInput(newVal, 'Offset');
+});
+
+// Form is valid when no errors exist
+const formValid = computed(() => !limitError.value && !offsetError.value);
 
 const LazyPipelineDuration = defineAsyncComponent(() => import('./PipelineChart.vue'));
 const LazyRowCount = defineAsyncComponent(() => import('./RowCountChart.vue'));

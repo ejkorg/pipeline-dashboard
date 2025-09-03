@@ -40,8 +40,14 @@ export const usePrefsStore = defineStore('prefs', () => {
   function setSearch(q: string) { search.value = q; }
   function toggleOffline() { offlineMode.value = !offlineMode.value; }
   function setOffline(v: boolean) { offlineMode.value = v; }
-  function setApiLimit(n: number) { apiLimit.value = Math.max(0, Math.floor(n || 0)); }
-  function setApiOffset(n: number) { apiOffset.value = Math.max(0, Math.floor(n || 0)); }
+  function setApiLimit(n: number) { 
+    const value = Number(n);
+    apiLimit.value = Math.min(10000, Math.max(0, Math.floor(isNaN(value) ? 0 : value))); 
+  }
+  function setApiOffset(n: number) { 
+    const value = Number(n);
+    apiOffset.value = Math.min(10000, Math.max(0, Math.floor(isNaN(value) ? 0 : value))); 
+  }
   function setApiAllData(v: boolean) { apiAllData.value = !!v; }
 
   // persistence
