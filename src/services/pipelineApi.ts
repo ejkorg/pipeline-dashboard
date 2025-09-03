@@ -16,7 +16,7 @@ const OFFLINE_MODE = import.meta.env.VITE_OFFLINE_MODE === 'true';
 const STRICT_NO_FALLBACK = import.meta.env['VITE_STRICT_NO_FALLBACK'] === 'true';
 
 // Backend constraint: FastAPI validates limit <= 1000
-const LIMIT_MAX = 1000;
+export const LIMIT_MAX = 1000;
 
 // Allow consumers to observe the source of the last fetch.
 type SourceListener = (source: 'live' | 'offline' | 'fallback') => void;
