@@ -24,7 +24,7 @@ export const usePrefsStore = defineStore('prefs', () => {
     const qIndex = path.indexOf('?');
     const query = qIndex >= 0 ? path.substring(qIndex + 1) : '';
     const sp = new URLSearchParams(query);
-    const limit = Number(sp.get('limit') || '100') || 100;
+    const limit = Number(sp.get('limit') || '10000') || 10000;
     const offset = Number(sp.get('offset') || '0') || 0;
     const allData = (sp.get('all_data') || 'false').toLowerCase() === 'true';
     return { limit, offset, allData };

@@ -45,7 +45,7 @@ describe('Dashboard Input Validation', () => {
     await limitInput.trigger('input');
     
     // Should clamp the value to 10000
-    expect(limitInput.element.value).toBe('10000');
+    expect((limitInput.element as HTMLInputElement).value).toBe('10000');
     
     // Should not show error since value was clamped
     const errorMessage = wrapper.find('#limit-error');
@@ -61,7 +61,7 @@ describe('Dashboard Input Validation', () => {
     await limitInput.trigger('input');
     
     // Should clamp the value to 0
-    expect(limitInput.element.value).toBe('0');
+    expect((limitInput.element as HTMLInputElement).value).toBe('0');
     
     // Should not show error since value was clamped
     const errorMessage = wrapper.find('#limit-error');
@@ -75,15 +75,15 @@ describe('Dashboard Input Validation', () => {
     // Test boundary values
     await limitInput.setValue('0');
     await limitInput.trigger('input');
-    expect(limitInput.element.value).toBe('0');
+    expect((limitInput.element as HTMLInputElement).value).toBe('0');
     
     await limitInput.setValue('10000');
     await limitInput.trigger('input');
-    expect(limitInput.element.value).toBe('10000');
+    expect((limitInput.element as HTMLInputElement).value).toBe('10000');
     
     await limitInput.setValue('5000');
     await limitInput.trigger('input');
-    expect(limitInput.element.value).toBe('5000');
+    expect((limitInput.element as HTMLInputElement).value).toBe('5000');
     
     // No error messages should be present
     const errorMessage = wrapper.find('#limit-error');
@@ -99,7 +99,7 @@ describe('Dashboard Input Validation', () => {
     await offsetInput.trigger('input');
     
     // Should clamp the value to 10000
-    expect(offsetInput.element.value).toBe('10000');
+    expect((offsetInput.element as HTMLInputElement).value).toBe('10000');
     
     // Should not show error since value was clamped
     const errorMessage = wrapper.find('#offset-error');
@@ -127,14 +127,14 @@ describe('Dashboard Input Validation', () => {
     const limitInput = wrapper.find('#limit-input');
     
     // Simulate paste by setting value and triggering paste event
-    limitInput.element.value = '25000';
+    (limitInput.element as HTMLInputElement).value = '25000';
     await limitInput.trigger('paste');
     
     // Wait for setTimeout in handlePaste
     await new Promise(resolve => setTimeout(resolve, 10));
     
     // Value should be clamped
-    expect(limitInput.element.value).toBe('10000');
+    expect((limitInput.element as HTMLInputElement).value).toBe('10000');
   });
 
   it('has proper accessibility attributes', async () => {
@@ -168,5 +168,17 @@ describe('Dashboard Input Validation', () => {
     // Check Apply button has proper height matching inputs
     const applyButton = wrapper.find('button[title*="Apply"]');
     expect(applyButton.classes()).toContain('h-9');
+  });
+
+  it('displays helper text for maximum values', async () => {
+    const wrapper = mount(Dashboard);
+    
+    // Check that helper text is present for both inputs
+    const helperTexts = wrapper.findAll('.text-xs.text-gray-500');
+    const helperTextContents = helperTexts.map(h => h.text());
+    
+    // Should have exactly 2 helper texts saying "Max: 10,000"
+    const maxHelperTexts = helperTextContents.filter(text => text === 'Max: 10,000');
+    expect(maxHelperTexts.length).toBe(2);
   });
 });

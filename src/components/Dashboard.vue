@@ -30,6 +30,7 @@
               :aria-invalid="!!limitError"
               :aria-describedby="limitError ? 'limit-error' : undefined"
             />
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max: 10,000</div>
             <div v-if="limitError" id="limit-error" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
               {{ limitError }}
             </div>
@@ -52,6 +53,7 @@
               :aria-invalid="!!offsetError"
               :aria-describedby="offsetError ? 'offset-error' : undefined"
             />
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Max: 10,000</div>
             <div v-if="offsetError" id="offset-error" class="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">
               {{ offsetError }}
             </div>
@@ -326,10 +328,16 @@ function validateNumericInput(value: number, fieldName: string): string {
 function handleLimitInput(event: Event) {
   const input = event.target as HTMLInputElement;
   let value = parseInt(input.value) || 0;
+  const originalValue = value;
   
   // Clamp the value
   if (value < MIN_VALUE) value = MIN_VALUE;
   if (value > MAX_VALUE) value = MAX_VALUE;
+  
+  // Show toast if value was clamped down from above max
+  if (originalValue > MAX_VALUE) {
+    toasts.push(`Limit adjusted to maximum allowed value of ${MAX_VALUE.toLocaleString()}`, { type: 'warn' });
+  }
   
   // Update the input and model
   input.value = String(value);
@@ -340,10 +348,16 @@ function handleLimitInput(event: Event) {
 function handleOffsetInput(event: Event) {
   const input = event.target as HTMLInputElement;
   let value = parseInt(input.value) || 0;
+  const originalValue = value;
   
   // Clamp the value
   if (value < MIN_VALUE) value = MIN_VALUE;
   if (value > MAX_VALUE) value = MAX_VALUE;
+  
+  // Show toast if value was clamped down from above max
+  if (originalValue > MAX_VALUE) {
+    toasts.push(`Offset adjusted to maximum allowed value of ${MAX_VALUE.toLocaleString()}`, { type: 'warn' });
+  }
   
   // Update the input and model
   input.value = String(value);
