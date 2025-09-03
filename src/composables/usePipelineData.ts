@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import axios from 'axios';
+import { buildEndpoint } from '@/services/pipelineApi';
 
 export function usePipelineData() {
   const data = ref([]);
@@ -9,9 +10,11 @@ export function usePipelineData() {
 
   async function fetchPipelines(limit = 100, offset = 0) {
     loading.value = true;
-    const res = await axios.get('http://10.253.112.87:8001/get_pipeline_info', {
-      params: { limit, offset, all_data: true }
-    });
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
+    const endpoint = buildEndpoint({ limit, offset, all_data: true });
+    const url = `${baseUrl}${endpoint}`;
+    
+    const res = await axios.get(url);
     data.value = res.data.results;
     total.value = res.data.total;
     pipelines.value = res.data.pipelines;
