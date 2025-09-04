@@ -153,7 +153,7 @@
 <script setup lang="ts">
 import type { PipelineRun } from '@/types/pipeline';
 import { ref, computed } from 'vue';
-import { streamFile, getFileMetadata, openArchiveByDateCode, getArchiveMetadataByDateCode } from '@/services/fileService';
+import { streamFile, getFileMetadata, openArchiveByDateCode, getArchiveMetadataByDateCode, openOrDownloadArchiveByDateCode } from '@/services/fileService';
 import { useToastsStore } from '@/stores/toasts';
 import { usePrefsStore } from '@/stores/prefs';
 
@@ -280,7 +280,8 @@ async function viewFile(filePath: string, type: 'output' | 'log' | 'archive') {
           toasts.push('Archived file not found on server', { type: 'error' });
           return;
         }
-        openArchiveByDateCode(dateCode);
+        const maxPreviewBytes = prefs.archivePreviewMaxMB * 1024 * 1024;
+        await openOrDownloadArchiveByDateCode(dateCode, { maxPreviewBytes });
         return;
       } else {
         // Fallback to legacy path-based handling
