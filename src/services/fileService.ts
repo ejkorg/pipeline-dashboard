@@ -17,6 +17,52 @@ function fetchWithTimeout(resource: string, options: RequestInit & { timeout?: n
 }
 
 /**
+ * Open archived content by date_code using the backend endpoint that handles
+ * content-type detection, inline preview vs forced download, and chunked streaming.
+ */
+export async function openArchiveByDateCode(dateCode: string): Promise<void> {
+  const url = `${baseUrl}/pipelines/archived/${encodeURIComponent(dateCode)}`;
+  // Just open: server decides inline vs download based on size and type
+  window.open(url, '_blank');
+}
+
+/**
+ * Fetch metadata for an archived file by date_code.
+ * Tries HEAD first; if not allowed, falls back to a small ranged GET to read headers.
+ */
+export async function getArchiveMetadataByDateCode(dateCode: string): Promise<{
+  size?: number;
+  lastModified?: string;
+  contentType?: string;
+  exists: boolean;
+}> {
+  const url = `${baseUrl}/pipelines/archived/${encodeURIComponent(dateCode)}`;
+  try {
+    let resp = await fetchWithTimeout(url, { method: 'HEAD' });
+    if (!resp.ok && resp.status !== 405) {
+      return { exists: false };
+    }
+    if (resp.status === 405) {
+      // HEAD not allowed: make a ranged GET request to retrieve minimal headers
+      resp = await fetchWithTimeout(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+      if (!resp.ok) return { exists: false };
+    }
+    const size = resp.headers.get('content-length');
+    const lastModified = resp.headers.get('last-modified');
+    const contentType = resp.headers.get('content-type');
+    return {
+      exists: true,
+      size: size ? parseInt(size, 10) : undefined,
+      lastModified: lastModified || undefined,
+      contentType: contentType || undefined
+    };
+  } catch (error) {
+    logger.warn('Archive metadata fetch failed', { dateCode, error });
+    return { exists: false };
+  }
+}
+
+/**
  * Stream a file from the backend API
  * @param filePath - The file path to stream (should be absolute or relative to baseUrl)
  * @param fileType - Type of file (output, log, archive)
@@ -31,39 +77,9 @@ export async function streamFile(
     const fileUrl = `${baseUrl}${filePath}`;
 
     if (fileType === 'archive') {
-      const MAX_DECOMPRESS_SIZE = opts?.maxPreviewBytes ?? DEFAULT_MAX_DECOMPRESS_SIZE;
-      // For archived .gz files, fetch, decompress, and display
-      const response = await fetch(fileUrl, { method: 'GET' });
-      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
-
-      const contentLength = response.headers.get('content-length');
-      const size = contentLength ? parseInt(contentLength, 10) : 0;
-
-      if (size > MAX_DECOMPRESS_SIZE) {
-        // For large files, fall back to download to avoid performance issues
-        logger.warn('Archive file too large for decompression, triggering download', { filePath, size });
-        const link = document.createElement('a');
-        link.href = fileUrl;
-        link.download = filePath.split('/').pop() || `archive.${filePath.endsWith('.gz') ? 'gz' : 'zip'}`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return;
-      }
-
-      // Fetch as array buffer for binary data
-      const arrayBuffer = await response.arrayBuffer();
-      const compressedData = new Uint8Array(arrayBuffer);
-
-      // Decompress using pako
-      const decompressedData = pako.ungzip(compressedData, { to: 'string' }); // Assumes text content
-
-      // Create a blob and open in new tab for viewing
-      const blob = new Blob([decompressedData], { type: 'text/plain' });
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-      logger.info('Archive file decompressed and opened in new tab', { filePath, originalSize: size });
+      // Deprecated path-based archive handling: delegate to backend archived endpoint via date_code instead
+      logger.info('Archive requested via path; delegating to server-managed streaming if possible', { filePath });
+      window.open(fileUrl, '_blank');
     } else {
       // For text files, open in new tab (existing behavior)
       window.open(fileUrl, '_blank');

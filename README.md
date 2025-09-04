@@ -18,6 +18,7 @@ pnpm test:ui    # interactive test watcher
 - Trend detection (run-to-run elapsed comparison)
 - CSV/JSON export
 - Dark mode + persisted UI preferences
+- Archived file viewing via `GET /pipelines/archived/{date_code}` (server-managed inline vs download)
 
 ## Env Variables
 See `.env.example`. Notable flags:
@@ -41,6 +42,28 @@ VITE_DEV_PROXY_STRIP_PREFIX=false
 ```
 
 Then the dashboard will call `http://127.0.0.1:5173/pipeline-service/...` and the dev proxy will forward requests as `http://127.0.0.1:8001/pipeline-service/...` to match your upstream.
+
+### Archived files endpoint
+The UI uses the backend endpoint `GET /pipelines/archived/{date_code}` to stream/download archived artifacts for a pipeline run.
+
+- Server detects MIME type and decides inline preview vs forced download based on size
+- New tab will open to the endpoint URL: `${VITE_API_BASE_URL}/pipelines/archived/{date_code}`
+- “Info” button issues `HEAD` (or a Range GET fallback) to read headers (size/type/last-modified)
+
+Quick curl examples:
+
+```
+# Download (respects Content-Disposition filename)
+curl -sS -L -X GET "$BASE/pipeline-service/pipelines/archived/$DATE_CODE" -OJ
+
+# Headers only
+curl -sS -I "$BASE/pipeline-service/pipelines/archived/$DATE_CODE"
+
+# Range fallback when HEAD not allowed
+curl -sS -D - -H 'Range: bytes=0-0' "$BASE/pipeline-service/pipelines/archived/$DATE_CODE" -o /dev/null
+```
+
+See `docs/ARCHIVE_ENDPOINT.md` for more examples (browser JS and Node streaming).
 
 ## Deployment (Option 2: NGINX front, uvicorn on loopback)
 Recommended for intranet servers:

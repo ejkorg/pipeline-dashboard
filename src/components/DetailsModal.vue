@@ -124,8 +124,8 @@
             <button
               v-if="archivedFile"
               class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              @click="copyUrl(archivedFile!)"
-              title="Copy full file URL"
+              @click="copyArchiveUrl()"
+              title="Copy archive endpoint URL"
             >Copy URL</button>
             <span v-if="archivedFile" class="text-[10px] text-gray-500">Preview supported for small .gz files (≤ {{ prefs.archivePreviewMaxMB }}MB). Larger files will download.</span>
           </div>
@@ -153,7 +153,7 @@
 <script setup lang="ts">
 import type { PipelineRun } from '@/types/pipeline';
 import { ref, computed } from 'vue';
-import { streamFile, getFileMetadata } from '@/services/fileService';
+import { streamFile, getFileMetadata, openArchiveByDateCode, getArchiveMetadataByDateCode } from '@/services/fileService';
 import { useToastsStore } from '@/stores/toasts';
 import { usePrefsStore } from '@/stores/prefs';
 
@@ -205,6 +205,12 @@ function makeAbsolute(path: string) {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+function archiveEndpointUrl(): string | null {
+  const dc = props.run?.date_code;
+  if (!dc) return null;
+  return `${baseUrl}/pipelines/archived/${encodeURIComponent(dc)}`;
+}
+
 async function copyUrl(filePath: string) {
   const absolutePath = makeAbsolute(filePath);
   const fullUrl = `${baseUrl}${absolutePath}`;
@@ -220,11 +226,36 @@ async function copyUrl(filePath: string) {
   }
 }
 
-async function fetchArchiveMeta(filePath: string) {
-  const absolutePath = makeAbsolute(filePath);
+async function copyArchiveUrl() {
+  const endpoint = archiveEndpointUrl();
+  if (endpoint) {
+    try {
+      await navigator.clipboard.writeText(endpoint);
+      toasts.push('Archive URL copied to clipboard', { type: 'success', timeoutMs: 2000 });
+      return;
+    } catch {/* fall through to fallback */}
+    const ta = document.createElement('textarea');
+    ta.value = endpoint; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    toasts.push('Archive URL copied to clipboard', { type: 'success', timeoutMs: 2000 });
+  } else if (archivedFile.value) {
+    await copyUrl(archivedFile.value);
+  } else {
+    toasts.push('No archive URL available', { type: 'error' });
+  }
+}
+
+async function fetchArchiveMeta(filePathOrDateCode: string) {
   try {
     checking.value = true;
-    const meta = await getFileMetadata(absolutePath);
+    const dateCode = props.run?.date_code;
+    let meta;
+    if (dateCode) {
+      meta = await getArchiveMetadataByDateCode(dateCode);
+    } else {
+      const absolutePath = makeAbsolute(filePathOrDateCode);
+      meta = await getFileMetadata(absolutePath);
+    }
     archiveMeta.value = meta;
   } catch (e) {
     toasts.push('Failed to fetch metadata', { type: 'error' });
@@ -238,19 +269,29 @@ async function viewFile(filePath: string, type: 'output' | 'log' | 'archive') {
     // Ensure filePath is treated as absolute by prepending base URL if not already
     const absolutePath = makeAbsolute(filePath);
     if (type === 'archive') {
-      checking.value = true;
-      const meta = await getFileMetadata(absolutePath);
-      checking.value = false;
-      archiveMeta.value = meta;
-      if (!meta.exists) {
-        toasts.push('Archived file not found on server', { type: 'error' });
+      const dateCode = props.run?.date_code;
+      if (dateCode) {
+        // Use new server endpoint that handles streaming/preview/download logic
+        checking.value = true;
+        const meta = await getArchiveMetadataByDateCode(dateCode);
+        checking.value = false;
+        archiveMeta.value = meta;
+        if (!meta.exists) {
+          toasts.push('Archived file not found on server', { type: 'error' });
+          return;
+        }
+        openArchiveByDateCode(dateCode);
         return;
-      }
-      const limitBytes = prefs.archivePreviewMaxMB * 1024 * 1024;
-      if (meta.size && meta.size > limitBytes) {
-        toasts.push('Archive is large; downloading instead of previewing', { type: 'info' });
       } else {
-        toasts.push('Opening archive preview…', { type: 'info' });
+        // Fallback to legacy path-based handling
+        checking.value = true;
+        const meta = await getFileMetadata(absolutePath);
+        checking.value = false;
+        archiveMeta.value = meta;
+        if (!meta.exists) {
+          toasts.push('Archived file not found on server', { type: 'error' });
+          return;
+        }
       }
     }
   const maxPreviewBytes = prefs.archivePreviewMaxMB * 1024 * 1024;

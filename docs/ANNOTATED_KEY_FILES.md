@@ -26,6 +26,19 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://10.253...';
 // - Calls addTrends to append trend markers per pipeline_name
 ```
 
+## src/services/fileService.ts
+```ts
+// openArchiveByDateCode(dateCode)
+// getArchiveMetadataByDateCode(dateCode)
+// streamFile(path, type, opts) – legacy for path-based files (output/log),
+//   archive viewing prefers the new date_code endpoint
+```
+
+## Modal: src/components/DetailsModal.vue
+```vue
+<!-- Archived File actions use date_code with /pipelines/archived/{date_code} when available -->
+```
+
 ## src/stores/pipelines.ts
 ```ts
 // Pinia store: pipelines state + fetching lifecycle
