@@ -11,6 +11,7 @@ export const RawPipelineSchema = z.object({
     output_file: z.string().nullable().optional(),
     rowcount: z.union([z.number(), z.string()]).nullable().optional(),
     log_file: z.string().nullable().optional(),
+    archived_file: z.string().nullable().optional(),
     pid: z.union([z.number(), z.string()]).nullable().optional(),
     date_code: z.string().nullable().optional(),
     pipeline_name: z.string().nullable().optional(),
@@ -19,7 +20,7 @@ export const RawPipelineSchema = z.object({
     environment: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
     exit_code: z.union([z.number(), z.string()]).nullable().optional()
-});
+}).passthrough();
 
 // Flexible results container: array OR object map OR single object.
 // Order matters: the single-object schema is very permissive (all fields optional),

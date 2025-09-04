@@ -6,6 +6,20 @@ export function normalizePipeline(raw: RawPipelineRun): PipelineRun {
   const elapsedNum = Number(raw.elapsed_seconds) || 0;
   const rowsNum = Number(raw.rowcount) || 0;
   const pidNum = raw.pid !== undefined ? Number(raw.pid) : undefined;
+  // Support common alias keys for archived file paths to avoid losing data
+  const archivedFile =
+    raw.archived_file ||
+    (raw as any).archived ||
+    (raw as any).archive_file ||
+    (raw as any).archive_path ||
+    (raw as any).archived_path ||
+    (raw as any).archivePath ||
+    (raw as any).archivedPath ||
+    (raw as any).archive_file_path ||
+    (raw as any).archived_file_path ||
+    (raw as any).archiveFile ||
+    (raw as any).archivedFile ||
+    undefined;
   return {
     start_local: raw.start_local || undefined,
     end_local: raw.end_local || undefined,
@@ -16,6 +30,7 @@ export function normalizePipeline(raw: RawPipelineRun): PipelineRun {
     output_file: raw.output_file || undefined,
     rowcount: rowsNum,
     log_file: raw.log_file || undefined,
+    archived_file: archivedFile || undefined,
     pid: isNaN(pidNum as number) ? undefined : pidNum,
     date_code: raw.date_code || undefined,
     pipeline_name: raw.pipeline_name || raw.script_name || 'unknown',

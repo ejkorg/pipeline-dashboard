@@ -20,6 +20,17 @@ describe('normalizePipeline', () => {
     const p = normalizePipeline({ script_name: 'scriptA' });
     expect(p.pipeline_name).toBe('scriptA');
   });
+
+  it('maps archived file aliases to archived_file', () => {
+    const p1 = normalizePipeline({ start_utc: '2024-01-01T00:00:00Z', pipeline_name: 'x', archived_file: '/a.gz' });
+    const p2 = normalizePipeline({ start_utc: '2024-01-01T00:00:00Z', pipeline_name: 'x', archived: '/b.gz' } as any);
+    const p3 = normalizePipeline({ start_utc: '2024-01-01T00:00:00Z', pipeline_name: 'x', archive_path: '/c.gz' } as any);
+    const p4 = normalizePipeline({ start_utc: '2024-01-01T00:00:00Z', pipeline_name: 'x', archivedFile: '/d.gz' } as any);
+    expect(p1.archived_file).toBe('/a.gz');
+    expect(p2.archived_file).toBe('/b.gz');
+    expect(p3.archived_file).toBe('/c.gz');
+    expect(p4.archived_file).toBe('/d.gz');
+  });
 });
 
 describe('normalizePipelines', () => {

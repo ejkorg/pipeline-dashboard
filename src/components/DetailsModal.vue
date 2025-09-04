@@ -104,30 +104,30 @@
         </div>
         <div class="col-span-2">
           <div class="text-gray-500">Archived File</div>
-          <div class="font-mono break-all text-xs" :title="run.archived_file || '-'">{{ run.archived_file || '-' }}</div>
+          <div class="font-mono break-all text-xs" :title="archivedFile || '-'">{{ archivedFile || '-' }}</div>
           <div class="flex items-center gap-2 mt-1 flex-wrap">
             <button
-              v-if="run.archived_file"
+              v-if="archivedFile"
               class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
               :disabled="checking"
-              @click="viewFile(run.archived_file!, 'archive')"
+              @click="viewFile(archivedFile!, 'archive')"
             >
               {{ checking ? 'Checking…' : 'View' }}
             </button>
             <button
-              v-if="run.archived_file"
+              v-if="archivedFile"
               class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
               :disabled="checking"
-              @click="fetchArchiveMeta(run.archived_file!)"
+              @click="fetchArchiveMeta(archivedFile!)"
               title="Fetch metadata (size, type, last-modified)"
             >Info</button>
             <button
-              v-if="run.archived_file"
+              v-if="archivedFile"
               class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              @click="copyUrl(run.archived_file!)"
+              @click="copyUrl(archivedFile!)"
               title="Copy full file URL"
             >Copy URL</button>
-            <span v-if="run.archived_file" class="text-[10px] text-gray-500">Preview supported for small .gz files (≤ {{ prefs.archivePreviewMaxMB }}MB). Larger files will download.</span>
+            <span v-if="archivedFile" class="text-[10px] text-gray-500">Preview supported for small .gz files (≤ {{ prefs.archivePreviewMaxMB }}MB). Larger files will download.</span>
           </div>
           <div v-if="archiveMeta" class="mt-1 text-[11px] text-gray-600 dark:text-gray-300">
             <span v-if="archiveMeta.exists">
@@ -140,7 +140,7 @@
         </div>
       </div>
       <div v-else-if="run && tab==='json'" class="text-xs">
-        <pre class="bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-[50vh]">{{ pretty(run) }}</pre>
+        <pre class="bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-[50vh]">{{ pretty(displayRun) }}</pre>
       </div>
       <div v-else class="text-sm text-gray-500">No details.</div>
       <div class="mt-6 text-right">
@@ -152,12 +152,12 @@
 
 <script setup lang="ts">
 import type { PipelineRun } from '@/types/pipeline';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { streamFile, getFileMetadata } from '@/services/fileService';
 import { useToastsStore } from '@/stores/toasts';
 import { usePrefsStore } from '@/stores/prefs';
 
-defineProps<{ run: PipelineRun | null; otherRuns?: PipelineRun[] }>();
+const props = defineProps<{ run: PipelineRun | null; otherRuns?: PipelineRun[] }>();
 const tab = ref<'overview' | 'json'>('overview');
 function pretty(o: any) { return JSON.stringify(o, null, 2); }
 const toasts = useToastsStore();
@@ -165,6 +165,33 @@ const prefs = usePrefsStore();
 const checking = ref(false);
 const archiveMeta = ref<{ size?: number; lastModified?: string; contentType?: string; exists: boolean } | null>(null);
 const baseUrl = import.meta.env.VITE_API_BASE_URL || '/pipeline-service';
+
+// Derive archived file path from multiple potential keys to be robust against backend variations
+const archivedFile = computed<string | undefined>(() => {
+  const r: any = props.run;
+  if (!r) return undefined;
+  const v =
+    r.archived_file ??
+    r.archived ??
+    r.archive_file ??
+    r.archive_path ??
+    r.archived_path ??
+    r.archivePath ??
+    r.archivedPath ??
+    r.archive_file_path ??
+    r.archived_file_path ??
+    r.archiveFile ??
+    r.archivedFile;
+  return v || undefined;
+});
+
+// Include derived archived_file in the object shown in Raw JSON
+const displayRun = computed(() => {
+  if (!props.run) return null;
+  const copy: any = { ...props.run };
+  if (!copy.archived_file && archivedFile.value) copy.archived_file = archivedFile.value;
+  return copy;
+});
 
 function formatBytes(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];

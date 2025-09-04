@@ -267,7 +267,18 @@ function sanitize(raw: RawPipelineRun[]): PipelineRun[] {
       const exitRaw = r.exit_code ?? r.exitCode ?? r.code;
       const logFile = r.log_file ?? r.log ?? r.log_path ?? r.logPath;
       const outputFile = r.output_file ?? r.output ?? r.output_path ?? r.outputPath;
-      const archivedFile = r.archived_file ?? r.archived ?? r.archive_file ?? r.archivePath;
+      const archivedFile =
+        r.archived_file ??
+        r.archived ??
+        r.archive_file ??
+        r.archive_path ??
+        r.archived_path ??
+        r.archivePath ??
+        r.archivedPath ??
+        (r as any).archive_file_path ??
+        (r as any).archived_file_path ??
+        (r as any).archiveFile ??
+        (r as any).archivedFile;
 
       const elapsedNum = Number(elapsedRaw) || 0;
       const rowsNum = Number(rowsRaw) || 0;
